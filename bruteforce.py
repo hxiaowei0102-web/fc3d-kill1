@@ -1,47 +1,68 @@
 # -*- coding: utf-8 -*-
 """
-福彩3D 百十个杀一码 — 暴力穷举（最新200期，三位置独立）
+福彩3D 百十个杀一码 — 暴力穷举（最新200期，三位置独立，v3 千万级池）
 =============================================
-只参考最新200期，为百/十/个位各穷举出一条命中率最高的杀一码公式。
-三位置独立评估（杀一码无需联合搜索），特征矩阵预计算提速。
-并列裁决：命中率 → 公式更短 → 全量命中率更高 → 字典序。
+公式池：61特征 × 单/双/三特征线性组合 ≈ 1001万规格。
+numpy 向量化计算 200期输出，流式更新三位置最优（不存池、不去重、内存O(1)）。
+并列裁决：命中率 → 公式更短 → 字典序。
 """
 import json
+import numpy as np
 from engine import load_data
-from formulas import build_pool
+from formulas import feat_list, iter_specs, formula_name
 
 CSV = 'data/fc3d-history.csv'
 WINDOW = 200
 
 
-def _hit_count(out, actual_pos):
-    return sum(1 for k in range(len(out)) if out[k] != actual_pos[k])
-
-
 def search_best(hh, tt, oo, window=WINDOW, verbose=True):
-    """
-    用最新 window 期穷举，返回 {pos: (name, rate, hits)}，pos in h/t/o。
-    """
     N = len(hh)
     start = N - window
     if verbose:
-        print(f"穷举窗口: 第 {start+1}..{N} 条数据（下标 {start}..{N-1}），共 {window} 期")
-    pool = build_pool(hh, tt, oo, start, window, include_pair=True, verbose=verbose)
+        print(f"穷举窗口: 第 {start+1}..{N} 条数据，共 {window} 期")
 
-    actual = {'h': hh[start:], 't': tt[start:], 'o': oo[start:]}
-    best = {}
+    # 特征矩阵 (window, NF)
+    rows = [
+        feat_list(
+            hh[start + k - 1], tt[start + k - 1], oo[start + k - 1],
+            prev=(hh[start + k - 2], tt[start + k - 2], oo[start + k - 2]) if start + k - 2 >= 0 else None
+        )
+        for k in range(window)
+    ]
+    F = np.array(rows, dtype=np.int64)
+    ah = np.array(hh[start:start + window], dtype=np.int64)
+    at = np.array(tt[start:start + window], dtype=np.int64)
+    ao = np.array(oo[start:start + window], dtype=np.int64)
+
+    # 流式维护三位置最优 (hits, name)
+    best = {'h': (-1, ''), 't': (-1, ''), 'o': (-1, '')}
+    total = 0
+    for terms, const in iter_specs():
+        cols = np.array([idx for _, idx in terms], dtype=np.int64)
+        coeffs = np.array([c for c, _ in terms], dtype=np.int64)
+        out = (F[:, cols] * coeffs).sum(axis=1) + const
+        out %= 10
+        hh_hits = int((out != ah).sum())
+        tt_hits = int((out != at).sum())
+        oo_hits = int((out != ao).sum())
+        # 惰性生成 name：仅当可能刷新最优时才拼串
+        for pos, hits in (('h', hh_hits), ('t', tt_hits), ('o', oo_hits)):
+            b_hits, b_name = best[pos]
+            if hits >= b_hits:
+                name = formula_name(terms, const)
+                if hits > b_hits or (len(name), name) < (len(b_name), b_name):
+                    best[pos] = (hits, name)
+        total += 1
+
+    if verbose:
+        print(f"  遍历公式规格: {total:,} 条")
+    out = {}
     for pos in ['h', 't', 'o']:
-        ap = actual[pos]
-        scored = [(_hit_count(out, ap), name) for name, out in pool]
-        maxhits = max(c for c, _ in scored)
-        tied = [name for c, name in scored if c == maxhits]
-        # 并列裁决：公式更短 → 字典序
-        tied.sort(key=lambda n: (len(n), n))
-        name = tied[0]
-        best[pos] = (name, maxhits / window, maxhits)
+        hits, name = best[pos]
+        out[pos] = (name, hits / window, hits)
         if verbose:
-            print(f"  {pos} 最优: {name}  命中 {maxhits}/{window} = {maxhits/window*100:.2f}%  (并列{len(tied)}条取最短)")
-    return best, len(pool)
+            print(f"  {pos} 最优: {name}  命中 {hits}/{window} = {hits/window*100:.2f}%")
+    return out, total
 
 
 def main():

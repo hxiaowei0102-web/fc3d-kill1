@@ -36,6 +36,9 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: 安装依赖(numpy)
+        run: pip install numpy
+
       - name: 运行更新脚本(多源降级+期号校验+穷举+回测+生成页面)
         run: python auto_update.py || exit 1
 

@@ -28,10 +28,12 @@ def run_backtest(csv_path, combo, n=200):
     results = []
     for i in range(start, N):
         pb, ps, pg = hh[i-1], tt[i-1], oo[i-1]
+        # 跨期特征：前2期数据（第i期预测只用第i-1期及更早，不偷看未来）
+        prev = (hh[i-2], tt[i-2], oo[i-2]) if i >= 2 else None
         ah, at, ao = hh[i], tt[i], oo[i]
-        kh = fns['h'](pb, ps, pg)
-        kt = fns['t'](pb, ps, pg)
-        ko = fns['o'](pb, ps, pg)
+        kh = fns['h'](pb, ps, pg, prev)
+        kt = fns['t'](pb, ps, pg, prev)
+        ko = fns['o'](pb, ps, pg, prev)
         h_hit = (kh != ah)
         t_hit = (kt != at)
         o_hit = (ko != ao)
@@ -71,11 +73,12 @@ def predict_next(csv_path, combo):
     latest = issues[-1]
     pb, ps, pg = hh[-1], tt[-1], oo[-1]
     fns = _compile(combo)
+    prev = (hh[-2], tt[-2], oo[-2]) if len(issues) >= 2 else None
     return {
         'next_issue': get_next_issue(latest),
         'last_issue': latest,
         'last_draw': [pb, ps, pg],
-        'kh': fns['h'](pb, ps, pg),
-        'kt': fns['t'](pb, ps, pg),
-        'ko': fns['o'](pb, ps, pg),
+        'kh': fns['h'](pb, ps, pg, prev),
+        'kt': fns['t'](pb, ps, pg, prev),
+        'ko': fns['o'](pb, ps, pg, prev),
     }
