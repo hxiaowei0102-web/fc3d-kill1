@@ -171,12 +171,13 @@ def append_to_csv(new_draws, local_last=None):
 
 
 def sync_data():
-    """一键：抓数据 → 追加CSV。返回 next_code（若有）"""
+    """一键：抓数据 → 追加CSV。返回 (next_code, added)"""
     print("[同步] 多源降级抓取最新开奖...")
     rows, _ = load_existing_rows()
     local_last = max(rows.keys(), key=int) if rows else None
     fetched = fetch_latest()
     next_code = None
+    added = 0
     if fetched:
         _, draws = list(fetched.items())[0]
         latest_draw = max(draws, key=lambda d: int(d[0]))
@@ -187,7 +188,7 @@ def sync_data():
         print(f"  新增{added}期")
     else:
         print("  无新数据，沿用现有CSV")
-    return next_code
+    return next_code, added
 
 
 if __name__ == '__main__':

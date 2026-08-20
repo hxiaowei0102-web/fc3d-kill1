@@ -7,6 +7,12 @@ on:
     - cron: '30 15 * * *'
     - cron: '0 17 * * *'
   workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: '强制重新部署页面（即使无数据/公式变化）'
+        required: false
+        default: 'false'
+        type: boolean
 
 # 并发保护：三重cron若撞车，取消旧运行，只保留最新一次
 concurrency:
@@ -45,14 +51,18 @@ jobs:
       - name: 检查是否有真实数据更新
         id: check
         run: |
-          # 以核心产物判断：数据CSV或最优公式有变化才算真实更新（页面时间戳变化不算）
-          if git diff --quiet data/fc3d-history.csv && git diff --quiet best_formula.json; then
+          # 强制部署：直接跳过判断
+          if [ "${{ inputs.force_deploy }}" == "true" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "force_deploy=true: 强制部署"
+          # 以核心产物判断：CSV/公式/页面任一有变化才算真实更新（无变化时脚本不重写页面，时间戳不会误判）
+          elif git diff --quiet data/fc3d-history.csv && git diff --quiet best_formula.json && git diff --quiet static/index.html; then
             echo "changed=false" >> $GITHUB_OUTPUT
             git checkout -- static/index.html 2>/dev/null || true
-            echo "无新数据/无公式变化，恢复旧页面，跳过提交与部署"
+            echo "无新数据/无公式变化，跳过提交与部署"
           else
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "检测到真实更新(CSV或公式)"
+            echo "检测到真实更新(CSV/公式/页面)"
           fi
 
       - name: 提交更新

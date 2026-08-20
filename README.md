@@ -13,7 +13,7 @@
 
 ## 工作原理
 1. 多源抓取最新开奖 → 追加CSV（云端自动补期）
-2. 最新200期暴力穷举（61特征 × 单/双/三特征线性组合 ≈ **1001万条公式**，numpy向量化约2分钟）→ 百/十/个各选1条最优杀码公式
+2. 最新200期暴力穷举（59特征 × 单/双/三特征线性组合 ≈ **905万条公式**，numpy向量化约2分钟）→ 百/十/个各选1条最优杀码公式
 3. 固定公式回看200期 → 生成逐期真实预测回测表 → 部署到 GitHub Pages
 
 ## 本地文件
@@ -21,7 +21,7 @@
 |---|---|
 | auto_update.py | 云端全自动更新入口 |
 | fetch.py | 多源降级抓取 |
-| engine.py / formulas.py | 数据引擎 / 公式库（61特征） |
+| engine.py / formulas.py | 数据引擎 / 公式库（59特征） |
 | bruteforce.py / backtest.py | 暴力穷举(numpy) / 200期回测 |
 | gen_site.py | 生成网页 |
 | .github/workflows/update.yml | Actions 三重cron定时任务（含numpy依赖） |
