@@ -43,7 +43,8 @@ jobs:
           python-version: '3.11'
 
       - name: 安装依赖(numpy)
-        run: pip install numpy
+        # 锁定 <3 防未来破坏性升级改变穷举结果
+        run: pip install "numpy>=1.26,<3"
 
       - name: 运行更新脚本(多源降级+期号校验+穷举+回测+生成页面)
         run: python auto_update.py || exit 1

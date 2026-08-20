@@ -197,7 +197,7 @@ document.getElementById('sO').textContent = P.s200.o + '%';
 document.getElementById('sAll').textContent = P.s200.all + '%';
 document.getElementById('sStreak').textContent = P.max_streak + '期';
 document.getElementById('sTotal').textContent = P.s200.total + '期';
-document.getElementById('sPool').textContent = P.pool_size;
+document.getElementById('sPool').textContent = P.pool_size >= 10000 ? (P.pool_size/10000).toFixed(1) + '万' : P.pool_size;
 document.getElementById('allVal').textContent = P.s200.all + '%';
 document.getElementById('algoList').innerHTML =
   '<div class="algo"><b>百位</b> <span class="f">' + P.combo.h + '</span><span class="zh">' + P.explain.h + '</span></div>' +

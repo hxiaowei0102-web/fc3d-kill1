@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-福彩3D 百十个杀一码 — 暴力穷举（最新200期，三位置独立，v3 千万级池）
+福彩3D 百十个杀一码 — 暴力穷举（最新200期，三位置独立，v3 大池）
 =============================================
-公式池：61特征 × 单/双/三特征线性组合 ≈ 1001万规格。
+公式池：59特征 × 单/双/三特征线性组合 ≈ 905万规格。
 numpy 向量化计算 200期输出，流式更新三位置最优（不存池、不去重、内存O(1)）。
 并列裁决：命中率 → 公式更短 → 字典序。
 """
@@ -17,6 +17,10 @@ WINDOW = 200
 
 def search_best(hh, tt, oo, window=WINDOW, verbose=True):
     N = len(hh)
+    if N < window + 1:
+        raise ValueError(
+            f"数据量不足：仅 {N} 期，至少需要 {window+1} 期（{window}期被预测 + 1期上期）。"
+            f"请检查 data/fc3d-history.csv 是否被截断或损坏。")
     start = N - window
     if verbose:
         print(f"穷举窗口: 第 {start+1}..{N} 条数据，共 {window} 期")

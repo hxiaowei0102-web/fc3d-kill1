@@ -23,6 +23,10 @@ def load_data(csv_path=CSV_PATH):
                 ones.append(int(row['ones']))
             except (KeyError, ValueError):
                 continue
+    if not issues:
+        raise ValueError(
+            f"CSV 无有效数据：{csv_path} 为空或表头/字段损坏（需列 issue,hundreds,tens,ones）。"
+            f"请检查数据文件。")
     if any(issues[i] >= issues[i + 1] for i in range(len(issues) - 1)):
         order = sorted(range(len(issues)), key=lambda i: int(issues[i]))
         issues = [issues[i] for i in order]

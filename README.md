@@ -28,6 +28,9 @@
 | data/fc3d-history.csv | 历史数据（云端自动追加） |
 
 ## 手动触发
-GitHub Actions 页面 → 选中 workflow → Run workflow，或命令行 `gh workflow run update.yml`
+GitHub Actions 页面 → 选中 workflow → Run workflow，或命令行 `gh workflow run update.yml`（可选传 `-f force_deploy=true` 强制重新部署）
+
+## 本地运行
+需要 Python 3.11+ 与 `pip install "numpy>=1.26,<3"`，然后 `python update.py` 或 `python auto_update.py`
 
 仅供研究参考，不构成投注建议。
