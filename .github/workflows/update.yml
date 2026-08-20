@@ -29,7 +29,7 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: 安装Python
         uses: actions/setup-python@v5
@@ -39,18 +39,21 @@ jobs:
       - name: 运行更新脚本(多源降级+期号校验+穷举+回测+生成页面)
         run: python auto_update.py || exit 1
 
-      - name: 检查是否有新数据
+      - name: 检查是否有真实数据更新
         id: check
         run: |
-          if git diff --quiet data/fc3d-history.csv && git diff --quiet static/index.html; then
+          # 以核心产物判断：数据CSV或最优公式有变化才算真实更新（页面时间戳变化不算）
+          if git diff --quiet data/fc3d-history.csv && git diff --quiet best_formula.json; then
             echo "changed=false" >> $GITHUB_OUTPUT
-            echo "无新数据，跳过提交"
+            git checkout -- static/index.html 2>/dev/null || true
+            echo "无新数据/无公式变化，恢复旧页面，跳过提交与部署"
           else
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "检测到变化(CSV或页面)"
+            echo "检测到真实更新(CSV或公式)"
           fi
 
       - name: 提交更新
+        if: steps.check.outputs.changed == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -66,18 +69,22 @@ jobs:
           done
 
       - name: 准备部署文件
+        if: steps.check.outputs.changed == 'true'
         run: |
           mkdir -p _site
           cp static/index.html _site/
 
       - name: 配置Pages
+        if: steps.check.outputs.changed == 'true'
         uses: actions/configure-pages@v5
 
       - name: 上传部署产物
+        if: steps.check.outputs.changed == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./_site
 
       - name: 部署到GitHub Pages
+        if: steps.check.outputs.changed == 'true'
         id: deployment
         uses: actions/deploy-pages@v4

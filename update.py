@@ -29,7 +29,9 @@ if __name__ == '__main__':
     bruteforce.main()
 
     print("\n[3/3] 生成网页（200期回测）")
-    import gen_site
-    gen_site.main()
+    import os, gen_site
+    os.makedirs('static', exist_ok=True)
+    gen_site.main(out_path='static/index.html')  # 与云端auto_update.py输出路径统一
 
     print(f"\n完成 ✓  总耗时 {time.time()-t0:.1f} 秒")
+    print(f"本地预览: http://127.0.0.1:8899/static/index.html")

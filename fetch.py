@@ -136,14 +136,20 @@ def fetch_latest():
     return {}
 
 
-def append_to_csv(new_draws):
+def append_to_csv(new_draws, local_last=None):
+    """只追加比本地最新期号更新的期号，防止乱序/伪造旧期倒灌污染历史"""
     rows, was_oos = load_existing_rows()
+    if local_last is None:
+        local_last = max(rows.keys(), key=int) if rows else None
     added = 0
     for item in new_draws:
         issue, b, s, g = item[0], item[1], item[2], item[3]
         if not (isinstance(issue, str) and issue.startswith('20') and 7 <= len(issue) <= 8):
             continue
         if not all(isinstance(x, int) and 0 <= x <= 9 for x in [b, s, g]):
+            continue
+        # 防倒灌：必须严格晚于本地最新期号
+        if local_last and int(issue) <= int(local_last):
             continue
         if issue in rows:
             if rows[issue] != (b, s, g):
@@ -167,6 +173,8 @@ def append_to_csv(new_draws):
 def sync_data():
     """一键：抓数据 → 追加CSV。返回 next_code（若有）"""
     print("[同步] 多源降级抓取最新开奖...")
+    rows, _ = load_existing_rows()
+    local_last = max(rows.keys(), key=int) if rows else None
     fetched = fetch_latest()
     next_code = None
     if fetched:
@@ -175,7 +183,7 @@ def sync_data():
         if len(latest_draw) > 4 and latest_draw[4]:
             next_code = str(latest_draw[4])
             print(f"  下期期号(数据源): {next_code}")
-        added = append_to_csv(draws)
+        added = append_to_csv(draws, local_last=local_last)
         print(f"  新增{added}期")
     else:
         print("  无新数据，沿用现有CSV")

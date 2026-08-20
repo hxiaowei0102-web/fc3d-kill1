@@ -25,7 +25,7 @@ def search_best(hh, tt, oo, window=WINDOW, verbose=True):
     N = len(hh)
     start = N - window
     if verbose:
-        print(f"穷举窗口: 第 {start}..{N-1} 期（期号 {hh and ''}{N and ''}），共 {window} 期")
+        print(f"穷举窗口: 第 {start+1}..{N} 条数据（下标 {start}..{N-1}），共 {window} 期")
     pool = build_pool(hh, tt, oo, start, window, include_pair=True, verbose=verbose)
 
     actual = {'h': hh[start:], 't': tt[start:], 'o': oo[start:]}

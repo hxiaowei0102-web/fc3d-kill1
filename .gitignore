@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
 .workbuddy/
+# 本地预览版（云端统一用 static/index.html）
+/index.html
