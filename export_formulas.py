@@ -7,7 +7,7 @@
   - formulas_data.json       AI结构化数据
 所有数据从 formulas.py / best_formula.json / backtest 实时提取，保证与代码一致。
 """
-import json, os, math
+import json, os, math, itertools
 from datetime import datetime, timezone, timedelta
 
 BJT = timezone(timedelta(hours=8))
@@ -15,7 +15,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 os.chdir(ROOT)
 
 from engine import load_data
-from formulas import FEAT_NAMES, NF, COEFFS, TRIPLE_COEFFS, make_predictor
+from formulas import FEAT_NAMES, NF, COEFFS, TRIPLE_COEFFS, make_predictor, iter_specs, formula_name
 import gen_site
 import backtest
 
@@ -159,6 +159,10 @@ def build_data():
             'desc': '全部905万条公式可由 formulas.iter_specs() 流式重新生成（见 formulas.py），无需存储',
             'files': ['formulas.py', 'bruteforce.py', 'backtest.py', 'best_formula.json'],
         },
+        'pool_samples': [
+            formula_name(terms, const)
+            for terms, const in itertools.islice(iter_specs(), 20)
+        ],
     }
 
 
@@ -211,6 +215,13 @@ def gen_md(d):
     md.append(f"| **合计** | **{p['total']:,}** |")
     md.append('')
     md.append('> 全部公式无需存储：`formulas.py` 中 `iter_specs()` 生成器可按此规则流式重现（numpy 向量化评估约 140 秒/轮）。')
+    md.append('')
+    md.append('### 公式池示例样本（前20条）')
+    md.append('')
+    md.append('```')
+    for s in d['pool_samples']:
+        md.append(s)
+    md.append('```')
     md.append('')
     md.append('## 4. 选择逻辑（如何选最优公式）')
     md.append('')
