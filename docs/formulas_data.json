@@ -1,0 +1,482 @@
+{
+  "meta": {
+    "project": "福彩3D 百十个位各杀一码",
+    "export_time": "2026-08-21 10:37",
+    "data_periods": 8730,
+    "data_range": "2002001~2026222",
+    "latest_draw": "380",
+    "window": 200
+  },
+  "features": [
+    {
+      "name": "b",
+      "group": "上期单期基础(34个)",
+      "zh": "上期百位",
+      "expr": "b"
+    },
+    {
+      "name": "s",
+      "group": "上期单期基础(34个)",
+      "zh": "上期十位",
+      "expr": "s"
+    },
+    {
+      "name": "g",
+      "group": "上期单期基础(34个)",
+      "zh": "上期个位",
+      "expr": "g"
+    },
+    {
+      "name": "b2",
+      "group": "上期单期基础(34个)",
+      "zh": "百位²尾",
+      "expr": "b*b%10"
+    },
+    {
+      "name": "s2",
+      "group": "上期单期基础(34个)",
+      "zh": "十位²尾",
+      "expr": "s*s%10"
+    },
+    {
+      "name": "g2",
+      "group": "上期单期基础(34个)",
+      "zh": "个位²尾",
+      "expr": "g*g%10"
+    },
+    {
+      "name": "b3",
+      "group": "上期单期基础(34个)",
+      "zh": "百位³尾",
+      "expr": "b*b*b%10"
+    },
+    {
+      "name": "s3",
+      "group": "上期单期基础(34个)",
+      "zh": "十位³尾",
+      "expr": "s*s*s%10"
+    },
+    {
+      "name": "g3",
+      "group": "上期单期基础(34个)",
+      "zh": "个位³尾",
+      "expr": "g*g*g%10"
+    },
+    {
+      "name": "S",
+      "group": "上期单期基础(34个)",
+      "zh": "和值",
+      "expr": "b+s+g"
+    },
+    {
+      "name": "S10",
+      "group": "上期单期基础(34个)",
+      "zh": "和尾",
+      "expr": "(b+s+g)%10"
+    },
+    {
+      "name": "P",
+      "group": "上期单期基础(34个)",
+      "zh": "跨度",
+      "expr": "max(b,s,g)-min(b,s,g)"
+    },
+    {
+      "name": "mx",
+      "group": "上期单期基础(34个)",
+      "zh": "最大码",
+      "expr": "max(b,s,g)"
+    },
+    {
+      "name": "mn",
+      "group": "上期单期基础(34个)",
+      "zh": "最小码",
+      "expr": "min(b,s,g)"
+    },
+    {
+      "name": "md",
+      "group": "上期单期基础(34个)",
+      "zh": "中间码",
+      "expr": "中位数(b,s,g)"
+    },
+    {
+      "name": "d1",
+      "group": "上期单期基础(34个)",
+      "zh": "|百-十|",
+      "expr": "|b-s|"
+    },
+    {
+      "name": "d2",
+      "group": "上期单期基础(34个)",
+      "zh": "|百-个|",
+      "expr": "|b-g|"
+    },
+    {
+      "name": "d3",
+      "group": "上期单期基础(34个)",
+      "zh": "|十-个|",
+      "expr": "|s-g|"
+    },
+    {
+      "name": "bs",
+      "group": "上期单期基础(34个)",
+      "zh": "百×十尾",
+      "expr": "(b*s)%10"
+    },
+    {
+      "name": "bg",
+      "group": "上期单期基础(34个)",
+      "zh": "百×个尾",
+      "expr": "(b*g)%10"
+    },
+    {
+      "name": "sg",
+      "group": "上期单期基础(34个)",
+      "zh": "十×个尾",
+      "expr": "(s*g)%10"
+    },
+    {
+      "name": "bsg",
+      "group": "上期单期基础(34个)",
+      "zh": "三码积尾",
+      "expr": "(b*s*g)%10"
+    },
+    {
+      "name": "S2",
+      "group": "上期单期基础(34个)",
+      "zh": "和值²尾",
+      "expr": "S*S%10"
+    },
+    {
+      "name": "P2",
+      "group": "上期单期基础(34个)",
+      "zh": "跨度²尾",
+      "expr": "P*P%10"
+    },
+    {
+      "name": "sum2",
+      "group": "上期单期基础(34个)",
+      "zh": "(百+十)尾",
+      "expr": "(b+s)%10"
+    },
+    {
+      "name": "sum3",
+      "group": "上期单期基础(34个)",
+      "zh": "(十+个)尾",
+      "expr": "(s+g)%10"
+    },
+    {
+      "name": "sum4",
+      "group": "上期单期基础(34个)",
+      "zh": "(百+个)尾",
+      "expr": "(b+g)%10"
+    },
+    {
+      "name": "bp",
+      "group": "上期单期基础(34个)",
+      "zh": "百^个尾",
+      "expr": "(b**g)%10,g=0时=1"
+    },
+    {
+      "name": "gp",
+      "group": "上期单期基础(34个)",
+      "zh": "个^百尾",
+      "expr": "(g**b)%10,b=0时=1"
+    },
+    {
+      "name": "sp",
+      "group": "上期单期基础(34个)",
+      "zh": "十^个尾",
+      "expr": "(s**g)%10,g=0时=1"
+    },
+    {
+      "name": "bo",
+      "group": "上期单期基础(34个)",
+      "zh": "百奇偶",
+      "expr": "b%2"
+    },
+    {
+      "name": "so",
+      "group": "上期单期基础(34个)",
+      "zh": "十奇偶",
+      "expr": "s%2"
+    },
+    {
+      "name": "go",
+      "group": "上期单期基础(34个)",
+      "zh": "个奇偶",
+      "expr": "g%2"
+    },
+    {
+      "name": "So",
+      "group": "上期单期基础(34个)",
+      "zh": "和奇偶",
+      "expr": "S%2"
+    },
+    {
+      "name": "d12",
+      "group": "单期派生(9个)",
+      "zh": "|百-十|×|百-个|尾",
+      "expr": "(d1*d2)%10"
+    },
+    {
+      "name": "d13",
+      "group": "单期派生(9个)",
+      "zh": "|百-十|×|十-个|尾",
+      "expr": "(d1*d3)%10"
+    },
+    {
+      "name": "d23",
+      "group": "单期派生(9个)",
+      "zh": "|百-个|×|十-个|尾",
+      "expr": "(d2*d3)%10"
+    },
+    {
+      "name": "mxmn",
+      "group": "单期派生(9个)",
+      "zh": "大×小尾",
+      "expr": "(mx*mn)%10"
+    },
+    {
+      "name": "mxmd",
+      "group": "单期派生(9个)",
+      "zh": "大+中",
+      "expr": "(mx+md)%10"
+    },
+    {
+      "name": "mnmd",
+      "group": "单期派生(9个)",
+      "zh": "小+中",
+      "expr": "(mn+md)%10"
+    },
+    {
+      "name": "S3",
+      "group": "单期派生(9个)",
+      "zh": "和值³尾",
+      "expr": "(S*S*S)%10"
+    },
+    {
+      "name": "dsum",
+      "group": "单期派生(9个)",
+      "zh": "三差值和",
+      "expr": "(d1+d2+d3)%10"
+    },
+    {
+      "name": "bsg2",
+      "group": "单期派生(9个)",
+      "zh": "两两积和尾",
+      "expr": "(b*s+s*g+g*b)%10"
+    },
+    {
+      "name": "bL",
+      "group": "跨期·前2期(16个)",
+      "zh": "前2期百位",
+      "expr": "前2期百位"
+    },
+    {
+      "name": "sL",
+      "group": "跨期·前2期(16个)",
+      "zh": "前2期十位",
+      "expr": "前2期十位"
+    },
+    {
+      "name": "gL",
+      "group": "跨期·前2期(16个)",
+      "zh": "前2期个位",
+      "expr": "前2期个位"
+    },
+    {
+      "name": "SL",
+      "group": "跨期·前2期(16个)",
+      "zh": "前2期和值",
+      "expr": "bL+sL+gL"
+    },
+    {
+      "name": "S10L",
+      "group": "跨期·前2期(16个)",
+      "zh": "前2期和尾",
+      "expr": "(bL+sL+gL)%10"
+    },
+    {
+      "name": "PL",
+      "group": "跨期·前2期(16个)",
+      "zh": "前2期跨度",
+      "expr": "max(bL,sL,gL)-min(bL,sL,gL)"
+    },
+    {
+      "name": "db",
+      "group": "跨期·前2期(16个)",
+      "zh": "百位较前2期差",
+      "expr": "(b-bL)%10"
+    },
+    {
+      "name": "ds",
+      "group": "跨期·前2期(16个)",
+      "zh": "十位较前2期差",
+      "expr": "(s-sL)%10"
+    },
+    {
+      "name": "dg",
+      "group": "跨期·前2期(16个)",
+      "zh": "个位较前2期差",
+      "expr": "(g-gL)%10"
+    },
+    {
+      "name": "dS",
+      "group": "跨期·前2期(16个)",
+      "zh": "和值较前2期差",
+      "expr": "(S-SL)%10"
+    },
+    {
+      "name": "bh",
+      "group": "跨期·前2期(16个)",
+      "zh": "近2期百位和尾",
+      "expr": "(b+bL)%10"
+    },
+    {
+      "name": "sh",
+      "group": "跨期·前2期(16个)",
+      "zh": "近2期十位和尾",
+      "expr": "(s+sL)%10"
+    },
+    {
+      "name": "gh",
+      "group": "跨期·前2期(16个)",
+      "zh": "近2期个位和尾",
+      "expr": "(g+gL)%10"
+    },
+    {
+      "name": "bpr",
+      "group": "跨期·前2期(16个)",
+      "zh": "近2期百位积尾",
+      "expr": "(b*bL)%10"
+    },
+    {
+      "name": "spr",
+      "group": "跨期·前2期(16个)",
+      "zh": "近2期十位积尾",
+      "expr": "(s*sL)%10"
+    },
+    {
+      "name": "gpr",
+      "group": "跨期·前2期(16个)",
+      "zh": "近2期个位积尾",
+      "expr": "(g*gL)%10"
+    }
+  ],
+  "generation": {
+    "type": "线性组合公式（暴力穷举）",
+    "feature_count": 59,
+    "coefficients_single_pair": [
+      1,
+      2,
+      3,
+      5
+    ],
+    "coefficients_triple": [
+      1,
+      2,
+      3
+    ],
+    "constants": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "mod": 10,
+    "pool_stats": {
+      "single": 2360,
+      "pair": 273760,
+      "triple": 8777430,
+      "total": 9053550
+    }
+  },
+  "selection": {
+    "window": 200,
+    "hit_definition": "预测杀码 ≠ 该期该位开奖号（杀对=命中）",
+    "evaluate_input": "第i期预测只用第i-1期(上期)及第i-2期(前2期)数据，不偷看未来",
+    "tie_break": [
+      "命中率最高",
+      "公式字符串更短",
+      "字典序"
+    ]
+  },
+  "current_best": {
+    "h": {
+      "formula": "1*s+3*md+3",
+      "rate": 98.5,
+      "hits": 197,
+      "window": 200,
+      "explain_zh": "上期十位 + 3×中间码 + 3，取个位( mod 10 )"
+    },
+    "t": {
+      "formula": "2*S+3*so+3*bsg2+6",
+      "rate": 99.0,
+      "hits": 198,
+      "window": 200,
+      "explain_zh": "2×和值 + 3×十奇偶 + 3×两两积和尾 + 6，取个位( mod 10 )"
+    },
+    "o": {
+      "formula": "1*b+1*d2+2*sh+0",
+      "rate": 98.5,
+      "hits": 197,
+      "window": 200,
+      "explain_zh": "上期百位 + |百-个| + 2×近2期十位和尾，取个位( mod 10 )"
+    }
+  },
+  "example_predict": {
+    "next_issue": "2026223",
+    "last_issue": "2026222",
+    "last_draw": [
+      3,
+      8,
+      0
+    ],
+    "kills": {
+      "h": 0,
+      "t": 0,
+      "o": 0
+    },
+    "hand_calc": {
+      "h": {
+        "formula": "1*s+3*md+3",
+        "input": "上期(2,9,6) 前2期(3, 7, 3)",
+        "kill": 0
+      },
+      "t": {
+        "formula": "2*S+3*so+3*bsg2+6",
+        "input": "上期(2,9,6) 前2期(3, 7, 3)",
+        "kill": 5
+      },
+      "o": {
+        "formula": "1*b+1*d2+2*sh+0",
+        "input": "上期(2,9,6) 前2期(3, 7, 3)",
+        "kill": 8
+      }
+    }
+  },
+  "backtest": {
+    "hundreds": 98.5,
+    "tens": 99.0,
+    "ones": 98.5,
+    "all3": 96.0,
+    "total_periods": 200,
+    "max_miss_streak": 1,
+    "random_baseline_all3": 72.9
+  },
+  "reproduce": {
+    "desc": "全部905万条公式可由 formulas.iter_specs() 流式重新生成（见 formulas.py），无需存储",
+    "files": [
+      "formulas.py",
+      "bruteforce.py",
+      "backtest.py",
+      "best_formula.json"
+    ]
+  }
+}
