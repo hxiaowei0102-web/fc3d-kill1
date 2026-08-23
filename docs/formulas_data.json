@@ -1,10 +1,10 @@
 {
   "meta": {
     "project": "福彩3D 百十个位各杀一码",
-    "export_time": "2026-08-21 10:46",
-    "data_periods": 8730,
-    "data_range": "2002001~2026222",
-    "latest_draw": "380",
+    "export_time": "2026-08-23 20:48",
+    "data_periods": 8732,
+    "data_range": "2002001~2026224",
+    "latest_draw": "862",
     "window": 200
   },
   "features": [
@@ -409,11 +409,11 @@
   },
   "current_best": {
     "h": {
-      "formula": "1*s+3*md+3",
-      "rate": 98.5,
-      "hits": 197,
+      "formula": "2*s2+3*d2+1*sg+0",
+      "rate": 99.0,
+      "hits": 198,
       "window": 200,
-      "explain_zh": "上期十位 + 3×中间码 + 3，取个位( mod 10 )"
+      "explain_zh": "2×十位²尾 + 3×|百-个| + 十×个尾，取个位( mod 10 )"
     },
     "t": {
       "formula": "2*S+3*so+3*bsg2+6",
@@ -423,31 +423,31 @@
       "explain_zh": "2×和值 + 3×十奇偶 + 3×两两积和尾 + 6，取个位( mod 10 )"
     },
     "o": {
-      "formula": "1*b+1*d2+2*sh+0",
-      "rate": 98.5,
-      "hits": 197,
+      "formula": "1*bsg2+1*SL+2*db+2",
+      "rate": 99.0,
+      "hits": 198,
       "window": 200,
-      "explain_zh": "上期百位 + |百-个| + 2×近2期十位和尾，取个位( mod 10 )"
+      "explain_zh": "两两积和尾 + 前2期和值 + 2×百位较前2期差 + 2，取个位( mod 10 )"
     }
   },
   "example_predict": {
-    "next_issue": "2026223",
-    "last_issue": "2026222",
+    "next_issue": "2026225",
+    "last_issue": "2026224",
     "last_draw": [
-      3,
       8,
-      0
+      6,
+      2
     ],
     "kills": {
-      "h": 0,
-      "t": 0,
-      "o": 0
+      "h": 2,
+      "t": 6,
+      "o": 7
     },
     "hand_calc": {
       "h": {
-        "formula": "1*s+3*md+3",
+        "formula": "2*s2+3*d2+1*sg+0",
         "input": "上期(2,9,6) 前2期(3, 7, 3)",
-        "kill": 0
+        "kill": 8
       },
       "t": {
         "formula": "2*S+3*so+3*bsg2+6",
@@ -455,17 +455,17 @@
         "kill": 5
       },
       "o": {
-        "formula": "1*b+1*d2+2*sh+0",
+        "formula": "1*bsg2+1*SL+2*db+2",
         "input": "上期(2,9,6) 前2期(3, 7, 3)",
-        "kill": 8
+        "kill": 7
       }
     }
   },
   "backtest": {
-    "hundreds": 98.5,
+    "hundreds": 99.0,
     "tens": 99.0,
-    "ones": 98.5,
-    "all3": 96.0,
+    "ones": 99.0,
+    "all3": 97.0,
     "total_periods": 200,
     "max_miss_streak": 1,
     "random_baseline_all3": 72.9
