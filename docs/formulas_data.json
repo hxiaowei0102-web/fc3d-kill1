@@ -1,10 +1,10 @@
 {
   "meta": {
     "project": "福彩3D 百十个位各杀一码",
-    "export_time": "2026-08-23 20:48",
-    "data_periods": 8732,
-    "data_range": "2002001~2026224",
-    "latest_draw": "862",
+    "export_time": "2026-08-28 00:38",
+    "data_periods": 8736,
+    "data_range": "2002001~2026228",
+    "latest_draw": "399",
     "window": 200
   },
   "features": [
@@ -416,11 +416,11 @@
       "explain_zh": "2×十位²尾 + 3×|百-个| + 十×个尾，取个位( mod 10 )"
     },
     "t": {
-      "formula": "2*S+3*so+3*bsg2+6",
+      "formula": "1*d1+2*sg+1*S3+1",
       "rate": 99.0,
       "hits": 198,
       "window": 200,
-      "explain_zh": "2×和值 + 3×十奇偶 + 3×两两积和尾 + 6，取个位( mod 10 )"
+      "explain_zh": "|百-十| + 2×十×个尾 + 和值³尾 + 1，取个位( mod 10 )"
     },
     "o": {
       "formula": "1*bsg2+1*SL+2*db+2",
@@ -431,17 +431,17 @@
     }
   },
   "example_predict": {
-    "next_issue": "2026225",
-    "last_issue": "2026224",
+    "next_issue": "2026229",
+    "last_issue": "2026228",
     "last_draw": [
-      8,
-      6,
-      2
+      3,
+      9,
+      9
     ],
     "kills": {
-      "h": 2,
-      "t": 6,
-      "o": 7
+      "h": 1,
+      "t": 0,
+      "o": 2
     },
     "hand_calc": {
       "h": {
@@ -450,9 +450,9 @@
         "kill": 8
       },
       "t": {
-        "formula": "2*S+3*so+3*bsg2+6",
+        "formula": "1*d1+2*sg+1*S3+1",
         "input": "上期(2,9,6) 前2期(3, 7, 3)",
-        "kill": 5
+        "kill": 9
       },
       "o": {
         "formula": "1*bsg2+1*SL+2*db+2",
@@ -467,7 +467,7 @@
     "ones": 99.0,
     "all3": 97.0,
     "total_periods": 200,
-    "max_miss_streak": 1,
+    "max_miss_streak": 2,
     "random_baseline_all3": 72.9
   },
   "reproduce": {
