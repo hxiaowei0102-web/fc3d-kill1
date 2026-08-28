@@ -70,6 +70,26 @@ def build_data():
         'hh': r['h_hit'], 'th': r['t_hit'], 'oh': r['o_hit'], 'ah': r['all_hit'],
     } for r in bt200['results']]
 
+    # 每日预测跟踪数据（predictions_log.csv）
+    track = {}
+    try:
+        import track_predictions as tp
+        track_sum = tp.summarize()
+        track_rows = sorted(tp._load_log().values(), key=lambda x: int(x['issue']))
+        track = {
+            'summary': track_sum,
+            'rows': [{
+                'issue': r['issue'],
+                'kills': f"{r['kh']}{r['kt']}{r['ko']}",
+                'draw': r.get('draw', ''),
+                'status': r.get('status', ''),
+                'source': r.get('source', ''),
+                'all_hit': r.get('all_hit', ''),
+            } for r in track_rows[-30:]],  # 最近30期明细
+        }
+    except Exception as e:
+        track = {'summary': None, 'rows': [], 'error': str(e)[:60]}
+
     return {
         'data_info': {'n_issues': len(issues), 'first': issues[0], 'last': issues[-1]},
         'next_issue': pred['next_issue'],
@@ -85,6 +105,7 @@ def build_data():
                  'total': s200['total_periods']},
         'max_streak': s200['max_streak'],
         'rows': rows,
+        'track': track,
     }
 
 
@@ -181,6 +202,28 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
     3杀全中随机基线 72.9%（每位置杀1码 0.9³）。本套近200期全中 <b id="allVal">-</b>。
   </div>
 </div>
+<div class="table-wrap">
+  <h3>📈 每日预测跟踪（真实累计） <span style="font-size:.65rem;color:#999">每日预测→开奖后自动验证</span></h3>
+  <div class="stats" style="margin:8px 4px;grid-template-columns:1fr 1fr 1fr">
+    <div class="stat stat-main"><div class="val g" id="tkAll">-</div><div class="lbl">3杀全中率(已验证)</div></div>
+    <div class="stat"><div class="val" id="tkVerified">-</div><div class="lbl">已验证期数</div></div>
+    <div class="stat"><div class="val" id="tkPending">-</div><div class="lbl">待开奖</div></div>
+  </div>
+  <div class="stats" style="margin:8px 4px;grid-template-columns:1fr 1fr 1fr">
+    <div class="stat"><div class="val o" id="tkLive">-</div><div class="lbl">真实跟踪全中</div></div>
+    <div class="stat"><div class="val" id="tkMaxMiss">-</div><div class="lbl">最大连错</div></div>
+    <div class="stat"><div class="val" id="tkRecent30">-</div><div class="lbl">近30期全中</div></div>
+  </div>
+  <div style="padding:0 12px 8px;font-size:.62rem;color:#999;line-height:1.6">
+    历史回填=公式拟合窗口，数字偏乐观；<b>真实跟踪</b>从启用日起逐期累计，样本外真实水平。
+  </div>
+  <div class="scroll" style="max-height:280px">
+    <table class="tbl">
+      <thead><tr><th>期号</th><th>预测杀码</th><th>开奖</th><th>结果</th><th>类型</th></tr></thead>
+      <tbody id="tkBody"></tbody>
+    </table>
+  </div>
+</div>
 <div class="foot">
   仅供研究参考 · 不构成投注建议 · 近200期为暴力穷举最优结果，属历史拟合，样本外会回落<br>
   数据截止 <span id="dataInfo"></span> 期
@@ -220,6 +263,35 @@ document.getElementById('predIssue').textContent = P.next_issue;
 document.getElementById('lastInfo').textContent = '上期 ' + P.last_issue + ' = ' + P.last_draw;
 document.getElementById('updateTime').textContent = '更新 ' + P.updated;
 document.getElementById('dataInfo').textContent = P.data_info.last;
+/* 每日预测跟踪 */
+(function() {
+  const tk = P.track || {};
+  const s = tk.summary;
+  if (s) {
+    document.getElementById('tkAll').textContent = s.all_hit_rate + '%';
+    document.getElementById('tkVerified').textContent = s.verified + '期';
+    document.getElementById('tkPending').textContent = s.pending + '期';
+    document.getElementById('tkLive').textContent = s.live && s.live.verified > 0 ? (s.live.all_hit_rate + '%/' + s.live.verified + '期') : '0%';
+    document.getElementById('tkMaxMiss').textContent = s.max_miss_streak + '期';
+    document.getElementById('tkRecent30').textContent = s.recent30_all + '%';
+  }
+  const tbody = document.getElementById('tkBody');
+  (tk.rows || []).forEach(function(r) {
+    const tr = document.createElement('tr');
+    let cls = '', lbl = r.status;
+    if (r.status === 'hit') { cls = 'tr-hit'; lbl = '✓全中'; }
+    else if (r.status === 'miss') { cls = 'tr-miss'; lbl = '✗失误'; }
+    else if (r.status === 'partial') { cls = 'tr-miss'; lbl = '◐部分'; }
+    else { cls = 'tr-miss'; lbl = '⏳待开奖'; }
+    tr.className = cls;
+    tr.innerHTML =
+      '<td>' + r.issue + '</td><td class="kill">' + r.kills + '</td>' +
+      '<td><b>' + (r.draw || '-') + '</b></td>' +
+      '<td class="' + (r.status === 'hit' ? 'badge-y' : 'badge-n') + '">' + lbl + '</td>' +
+      '<td>' + (r.source === 'live' ? '真实' : '回填') + '</td>';
+    tbody.appendChild(tr);
+  });
+})();
 </script>
 </body>
 </html>

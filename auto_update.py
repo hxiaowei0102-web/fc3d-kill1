@@ -68,7 +68,16 @@ def main():
         import gen_site
         gen_site.main(out_path=OUT_HTML)
 
-    print("\n[4/4] 完成")
+    # 每日预测跟踪：独立于页面生成，每天必须执行
+    # （验证昨天预测 + 追加今天预测，即使数据/公式无变化）
+    print("\n[4/5] 每日预测跟踪（验证 + 追加）")
+    try:
+        import track_predictions
+        track_predictions.main()
+    except Exception as e:
+        print(f"  ⚠ 预测跟踪异常（不影响主流程）: {str(e)[:80]}")
+
+    print("\n[5/5] 完成")
     print(f"  总耗时 {time.time()-t0:.1f} 秒")
 
 
