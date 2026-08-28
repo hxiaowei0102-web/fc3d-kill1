@@ -85,6 +85,8 @@ def build_data():
                 'status': r.get('status', ''),
                 'source': r.get('source', ''),
                 'all_hit': r.get('all_hit', ''),
+                'predicted_at': r.get('predicted_at', ''),
+                'verified_at': r.get('verified_at', ''),
             } for r in track_rows[-30:]],  # 最近30期明细
         }
     except Exception as e:
@@ -203,9 +205,9 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
   </div>
 </div>
 <div class="table-wrap">
-  <h3>📈 每日预测跟踪（真实累计） <span style="font-size:.65rem;color:#999">每日预测→开奖后自动验证</span></h3>
+  <h3>📈 每日预测跟踪 <span style="font-size:.65rem;color:#999">(开奖前记录 · 开奖后回填 · 真实样本外)</span></h3>
   <div class="stats" style="margin:8px 4px;grid-template-columns:1fr 1fr 1fr">
-    <div class="stat stat-main"><div class="val g" id="tkAll">-</div><div class="lbl">3杀全中率(已验证)</div></div>
+    <div class="stat stat-main"><div class="val g" id="tkAll">-</div><div class="lbl">★3杀全中率(已验证)</div></div>
     <div class="stat"><div class="val" id="tkVerified">-</div><div class="lbl">已验证期数</div></div>
     <div class="stat"><div class="val" id="tkPending">-</div><div class="lbl">待开奖</div></div>
   </div>
@@ -215,7 +217,8 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
     <div class="stat"><div class="val" id="tkRecent30">-</div><div class="lbl">近30期全中</div></div>
   </div>
   <div style="padding:0 12px 8px;font-size:.62rem;color:#999;line-height:1.6">
-    历史回填=公式拟合窗口，数字偏乐观；<b>真实跟踪</b>从启用日起逐期累计，样本外真实水平。
+    预测在<b>开奖前落盘</b>（第i期只用第i-1/i-2期数据），开奖后自动回填判定。<b>真实跟踪</b>从启用日起逐期累计，
+    是唯一的样本外指标；历史回填=公式拟合窗口，数字偏乐观。
   </div>
   <div class="scroll" style="max-height:280px">
     <table class="tbl">

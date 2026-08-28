@@ -16,6 +16,7 @@
   让跟踪从第一天就有真实样本，而不是从今天才从零开始。
 """
 import csv, json, os
+from datetime import datetime, timezone, timedelta
 from engine import load_data, get_next_issue
 from formulas import make_predictor
 
@@ -23,17 +24,27 @@ CSV_PATH = 'data/fc3d-history.csv'
 LOG_PATH = 'predictions_log.csv'
 HEADER = ['issue', 'kh', 'kt', 'ko', 'prev_issue', 'prev_draw',
           'formula_h', 'formula_t', 'formula_o',
-          'draw', 'h_hit', 't_hit', 'o_hit', 'all_hit', 'status', 'source']
+          'draw', 'h_hit', 't_hit', 'o_hit', 'all_hit', 'status', 'source',
+          'predicted_at', 'verified_at']
 STATUS = {'PENDING': 'pending', 'ALL_HIT': 'hit', 'PARTIAL': 'partial', 'MISS': 'miss'}
+BJT = timezone(timedelta(hours=8))
+
+
+def _now_bjt():
+    """当前北京时间，格式 2026-08-28 22:00"""
+    return datetime.now(BJT).strftime('%Y-%m-%d %H:%M')
 
 
 def _load_log(path=LOG_PATH):
-    """读日志，返回 {issue: row}"""
+    """读日志，返回 {issue: row}。旧行缺新列时补默认值（向前兼容）"""
     rows = {}
     if os.path.exists(path):
         with open(path, 'r', encoding='utf-8') as f:
             for r in csv.DictReader(f):
                 if r.get('issue'):
+                    for k in ('predicted_at', 'verified_at'):
+                        if k not in r or r[k] is None:
+                            r[k] = ''
                     rows[r['issue']] = r
     return rows
 
@@ -89,6 +100,7 @@ def backfill_history(combo, n=60):
             'h_hit': '1' if h_hit else '0', 't_hit': '1' if t_hit else '0',
             'o_hit': '1' if o_hit else '0', 'all_hit': '1' if all_hit else '0',
             'status': status, 'source': 'backfill',
+            'predicted_at': '回填', 'verified_at': '回填',
         }
         added += 1
     _save_log(rows)
@@ -119,6 +131,7 @@ def verify_pending(combo):
         row['o_hit'] = '1' if o_hit else '0'
         row['all_hit'] = '1' if all_hit else '0'
         row['status'] = STATUS['ALL_HIT'] if all_hit else (STATUS['MISS'] if not (h_hit or t_hit or o_hit) else STATUS['PARTIAL'])
+        row['verified_at'] = _now_bjt()
         verified += 1
         if all_hit:
             hit += 1
@@ -146,6 +159,7 @@ def add_prediction(combo, issue=None):
         'formula_h': combo['h'], 'formula_t': combo['t'], 'formula_o': combo['o'],
         'draw': '', 'h_hit': '', 't_hit': '', 'o_hit': '', 'all_hit': '',
         'status': STATUS['PENDING'], 'source': 'live',
+        'predicted_at': _now_bjt(), 'verified_at': '',
     }
     _save_log(rows)
     return 1
@@ -215,11 +229,15 @@ def main():
     print("  每日预测跟踪 · 更新")
     print("=" * 50)
 
+    track_changed = False
+
     # 1. 首次启用时回填历史基准（500期，含拟合窗内外，诚实呈现真实水平）
     #    之后不再回填，只做「验证 pending + 追加新预测」的真实每日跟踪
     if not os.path.exists(LOG_PATH):
-        backfill = backfill_history(combo, n=500)
-        print(f"[初始化] 首次启用，回填 {backfill} 条历史预测作为基准（最近500期）")
+        backfilled = backfill_history(combo, n=500)
+        print(f"[初始化] 首次启用，回填 {backfilled} 条历史预测作为基准（最近500期）")
+        if backfilled:
+            track_changed = True
     else:
         print("[初始化] 日志已存在，跳过历史回填（只做真实每日跟踪）")
 
@@ -227,13 +245,15 @@ def main():
     verified, hit, miss = verify_pending(combo)
     if verified:
         print(f"[验证] 验证 {verified} 条预测: 全中 {hit} | 失误 {miss}")
+        track_changed = True
     else:
         print("[验证] 无待验证预测")
 
     # 3. 追加今日新预测
     added = add_prediction(combo)
     if added:
-        print(f"[新增] 已记录今日新预测")
+        print(f"[新增] 已记录今日新预测（开奖前落盘）")
+        track_changed = True
     else:
         print("[新增] 今日预测已存在，跳过")
 
@@ -246,6 +266,7 @@ def main():
     print(f"最大连错: {s['max_miss_streak']} 期 | 近30期3杀全中 {s['recent30_all']}%")
     lv, bk = s['live'], s['backfill']
     print(f"[真实跟踪] {lv['verified']}期 3杀全中 {lv['all_hit_rate']}% | [历史回填] {bk['verified']}期 3杀全中 {bk['all_hit_rate']}%")
+    return track_changed
 
 
 if __name__ == '__main__':

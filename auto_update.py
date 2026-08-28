@@ -26,7 +26,7 @@ def main():
     print(f"  时间(北京): {datetime.now(BJT).strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 46)
 
-    print("\n[1/4] 多源降级抓取 + 追加CSV")
+    print("\n[1/5] 多源降级抓取 + 追加CSV")
     added = 0
     try:
         import fetch
@@ -34,7 +34,7 @@ def main():
     except Exception as e:
         print(f"  ⚠ 数据同步异常，沿用现有CSV: {str(e)[:80]}")
 
-    print("\n[2/4] 暴力穷举（最新200期，三位置各选最优公式）")
+    print("\n[2/5] 暴力穷举（最新200期，三位置各选最优公式）")
     import bruteforce
     from engine import load_data
     issues, hh, tt, oo = load_data()
@@ -50,10 +50,18 @@ def main():
         pass
     formula_changed = (old_combo != new_combo)
 
-    if added == 0 and not formula_changed:
-        print("\n[3/4] 数据与公式均无变化，跳过页面生成（零无效更新）")
+    print("\n[3/5] 每日预测跟踪（验证昨日 + 记录今日）")
+    track_changed = False
+    try:
+        import track_predictions
+        track_changed = track_predictions.main()
+    except Exception as e:
+        print(f"  ⚠ 预测跟踪异常（不影响主流程）: {str(e)[:80]}")
+
+    if added == 0 and not formula_changed and not track_changed:
+        print("\n[4/5] 数据/公式/预测跟踪均无变化，跳过页面生成（零无效更新）")
     else:
-        print("\n[3/4] 200期回测 + 生成网页")
+        print("\n[4/5] 200期回测 + 生成网页")
         result = {
             'window': bruteforce.WINDOW,
             'data_info': {'n_issues': len(issues), 'first': issues[0], 'last': issues[-1]},
@@ -63,19 +71,10 @@ def main():
         }
         with open(COMBO_JSON, 'w', encoding='utf-8') as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
-        print(f"  已写入 {COMBO_JSON}（公式变化: {formula_changed}, 新增数据: {added}期）")
+        print(f"  已写入 {COMBO_JSON}（公式变化: {formula_changed}, 新增数据: {added}期, 跟踪变化: {track_changed}）")
         os.makedirs('static', exist_ok=True)
         import gen_site
         gen_site.main(out_path=OUT_HTML)
-
-    # 每日预测跟踪：独立于页面生成，每天必须执行
-    # （验证昨天预测 + 追加今天预测，即使数据/公式无变化）
-    print("\n[4/5] 每日预测跟踪（验证 + 追加）")
-    try:
-        import track_predictions
-        track_predictions.main()
-    except Exception as e:
-        print(f"  ⚠ 预测跟踪异常（不影响主流程）: {str(e)[:80]}")
 
     print("\n[5/5] 完成")
     print(f"  总耗时 {time.time()-t0:.1f} 秒")
