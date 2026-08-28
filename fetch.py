@@ -11,13 +11,24 @@ CSV_PATH = 'data/fc3d-history.csv'
 
 
 # ============ HTTP ============
-def _http_get(url, referer=None):
+def _http_get(url, referer=None, timeout=20, retries=3, retry_delay=2):
+    """带重试的 HTTP 获取：默认最多重试3次（间隔2秒），抗瞬断/限频/超时。
+    部分源(如17500)会间歇性超时，重试后成功率显著提升。"""
     from urllib.request import urlopen, Request
+    import time
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     if referer:
         headers['Referer'] = referer
-    req = Request(url, headers=headers)
-    return urlopen(req, timeout=15).read().decode('utf-8', errors='ignore')
+    last_err = None
+    for i in range(retries):
+        try:
+            req = Request(url, headers=headers)
+            return urlopen(req, timeout=timeout).read().decode('utf-8', errors='ignore')
+        except Exception as e:
+            last_err = e
+            if i < retries - 1:
+                time.sleep(retry_delay)
+    raise last_err
 
 
 # ============ 各源解析（统一返回 [(issue,b,s,g,next_code), ...]） ============
@@ -72,15 +83,9 @@ DATA_SOURCES = [
     {'name': 'apihz', 'kind': 'json',
      'url': 'https://cn.apihz.cn/api/caipiao/fucai3d.php?id=88888888&key=88888888',
      'parser': _parse_apihz},
-    {'name': 'cwl', 'kind': 'json', 'referer': 'https://www.cwl.gov.cn/',
-     'url': 'https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice?name=3d&issueCount=5',
-     'parser': lambda d: [(it['code'], int(it['red'].split(',')[0]), int(it['red'].split(',')[1]),
-                           int(it['red'].split(',')[2]), None) for it in d.get('result', [])]},
-    {'name': '55128', 'kind': 'html',
-     'url': 'https://www.55128.cn/zous/3d-5.htm'},
-    {'name': '8200', 'kind': 'html',
-     'url': 'https://3d.8200.cn/'},
 ]
+# 2026-08 实测：cwl(403)/55128(拒连)/8200(DNS挂) 已失效移除；
+# huiniao=主力(最稳), 17500=备用(间歇超时,已加自动重试), apihz=最后兜底(公共key限频)
 
 
 # ============ 本地CSV ============
