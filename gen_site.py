@@ -89,8 +89,17 @@ def build_data():
                 'verified_at': r.get('verified_at', ''),
             } for r in track_rows[-30:]],  # 最近30期明细
         }
+        # 页面预测数字：优先取跟踪日志最新 pending 预测（开奖前真实落盘值），
+        # 避免公式变更时页面(新公式)与跟踪(旧公式)不一致；无 pending 时才用公式重算
+        pending_rows = [r for r in track_rows if r.get('status') == 'pending']
+        if pending_rows:
+            latest_pending = pending_rows[-1]
+            pred_kh = int(latest_pending['kh']); pred_kt = int(latest_pending['kt']); pred_ko = int(latest_pending['ko'])
+        else:
+            pred_kh, pred_kt, pred_ko = pred['kh'], pred['kt'], pred['ko']
     except Exception as e:
         track = {'summary': None, 'rows': [], 'error': str(e)[:60]}
+        pred_kh, pred_kt, pred_ko = pred['kh'], pred['kt'], pred['ko']
 
     return {
         'data_info': {'n_issues': len(issues), 'first': issues[0], 'last': issues[-1]},
@@ -101,7 +110,7 @@ def build_data():
         'pool_size': bf.get('pool_size'),
         'combo': combo,
         'explain': {pos: explain(combo[pos]) for pos in ['h', 't', 'o']},
-        'kh': pred['kh'], 'kt': pred['kt'], 'ko': pred['ko'],
+        'kh': pred_kh, 'kt': pred_kt, 'ko': pred_ko,
         's200': {'h': s200['hundreds_hit_rate'], 't': s200['tens_hit_rate'],
                  'o': s200['ones_hit_rate'], 'all': s200['all_hit_rate'],
                  'total': s200['total_periods']},
