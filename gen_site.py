@@ -76,6 +76,8 @@ def build_data():
         import track_predictions as tp
         track_sum = tp.summarize()
         track_rows = sorted(tp._load_log().values(), key=lambda x: int(x['issue']))
+        # 最近30期明细：倒序 = 近期到远期（最新期在最上面）
+        recent30 = track_rows[-30:][::-1]
         track = {
             'summary': track_sum,
             'rows': [{
@@ -87,7 +89,7 @@ def build_data():
                 'all_hit': r.get('all_hit', ''),
                 'predicted_at': r.get('predicted_at', ''),
                 'verified_at': r.get('verified_at', ''),
-            } for r in track_rows[-30:]],  # 最近30期明细
+            } for r in recent30],  # 近期→远期
         }
         # 页面预测数字：优先取跟踪日志最新 pending 预测（开奖前真实落盘值），
         # 避免公式变更时页面(新公式)与跟踪(旧公式)不一致；无 pending 时才用公式重算
