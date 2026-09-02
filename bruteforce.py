@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-福彩3D 百十个杀一码 — 暴力穷举（最新200期，三位置独立，v3 大池）
+福彩3D 百十个杀一码 — 暴力穷举（双窗口：200期/300期，三位置独立，v3 大池）
 =============================================
 公式池：59特征 × 单/双/三特征线性组合 ≈ 905万规格。
-numpy 向量化计算 200期输出，流式更新三位置最优（不存池、不去重、内存O(1)）。
+numpy 向量化计算窗口期输出，流式更新三位置最优（不存池、不去重、内存O(1)）。
 并列裁决：命中率 → 公式更短 → 字典序。
+
+产物：
+  best_formula.json       最近 200 期窗口（默认/主窗口，预测跟踪沿用）
+  best_formula_300.json   最近 300 期窗口（新增，页面按钮切换展示）
 """
 import json
 import numpy as np
@@ -12,7 +16,10 @@ from engine import load_data
 from formulas import feat_list, iter_specs, formula_name
 
 CSV = 'data/fc3d-history.csv'
-WINDOW = 200
+WINDOW = 200          # 主窗口（线上沿用，跟踪/predictions_log 基准）
+WINDOW_300 = 300      # 副窗口（切换展示）
+JSON_MAIN = 'best_formula.json'
+JSON_300 = 'best_formula_300.json'
 
 
 def search_best(hh, tt, oo, window=WINDOW, verbose=True):
@@ -69,26 +76,65 @@ def search_best(hh, tt, oo, window=WINDOW, verbose=True):
     return out, total
 
 
-def main():
-    issues, hh, tt, oo = load_data(CSV)
-    N = len(issues)
-    print(f"数据 {N} 期：{issues[0]} ~ {issues[-1]}")
-    best, pool_size = search_best(hh, tt, oo, WINDOW)
-
+def build_result(best, pool_size, issues, window):
+    """组装 best_formula*.json 结构"""
     combo = {pos: best[pos][0] for pos in ['h', 't', 'o']}
-    result = {
-        'window': WINDOW,
-        'data_info': {'n_issues': N, 'first': issues[0], 'last': issues[-1]},
+    return {
+        'window': window,
+        'data_info': {'n_issues': len(issues), 'first': issues[0], 'last': issues[-1]},
         'pool_size': pool_size,
         'combo': combo,
         'rates': {pos: round(best[pos][1] * 100, 2) for pos in ['h', 't', 'o']},
     }
-    with open('best_formula.json', 'w', encoding='utf-8') as f:
-        json.dump(result, f, ensure_ascii=False, indent=2)
-    print("\n已写入 best_formula.json")
-    print(f"百位: {combo['h']}  ({result['rates']['h']}%)")
-    print(f"十位: {combo['t']}  ({result['rates']['t']}%)")
-    print(f"个位: {combo['o']}  ({result['rates']['o']}%)")
+
+
+def run_multi(verbose=True):
+    """双窗口穷举：200→best_formula.json(主)，300→best_formula_300.json(副)。
+    返回 (results_200, results_300)；任一窗口数据不足则对应为 None 且不写文件。"""
+    issues, hh, tt, oo = load_data(CSV)
+    N = len(issues)
+    if verbose:
+        print(f"数据 {N} 期：{issues[0]} ~ {issues[-1]}")
+
+    r200 = r300 = None
+    # 主窗口 200（必须，跟踪依赖）
+    if N >= WINDOW + 1:
+        best, pool = search_best(hh, tt, oo, WINDOW, verbose)
+        r200 = build_result(best, pool, issues, WINDOW)
+        with open(JSON_MAIN, 'w', encoding='utf-8') as f:
+            json.dump(r200, f, ensure_ascii=False, indent=2)
+        if verbose:
+            print(f"已写入 {JSON_MAIN}")
+
+    # 副窗口 300（数据够才跑，失败不阻塞主流程）
+    if N >= WINDOW_300 + 1:
+        best, pool = search_best(hh, tt, oo, WINDOW_300, verbose)
+        r300 = build_result(best, pool, issues, WINDOW_300)
+        with open(JSON_300, 'w', encoding='utf-8') as f:
+            json.dump(r300, f, ensure_ascii=False, indent=2)
+        if verbose:
+            print(f"已写入 {JSON_300}")
+    else:
+        if verbose:
+            print(f"数据 {N} 期 < {WINDOW_300}+1，跳过300期窗口（仅生成200期）")
+    return r200, r300
+
+
+def _combo_str(r, pos):
+    return f"{r['combo'][pos]}  ({r['rates'][pos]}%)"
+
+
+def main():
+    import sys
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+    r200, r300 = run_multi()
+    if r200:
+        print(f"\n200期: 百{_combo_str(r200,'h')} 十{_combo_str(r200,'t')} 个{_combo_str(r200,'o')}")
+    if r300:
+        print(f"300期: 百{_combo_str(r300,'h')} 十{_combo_str(r300,'t')} 个{_combo_str(r300,'o')}")
 
 
 if __name__ == '__main__':

@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-福彩3D 百十个杀一码（暴力穷举·近200期·固定公式）— 生成自包含本地网页
+福彩3D 百十个杀一码（暴力穷举·双窗口200/300·固定公式）— 生成自包含本地网页
 风格复刻 D:\\新版百十个\\index.html，适配杀一码（每位置1个数字块）。
+页面支持「近200期 / 近300期」按钮切换：各自公式、命中率、回测表独立展示。
 """
 import json
 import datetime
@@ -36,6 +37,12 @@ FEAT_ZH = {
     'bpr': '近2期百位积尾', 'spr': '近2期十位积尾', 'gpr': '近2期个位积尾',
 }
 
+# 参与页面展示的窗口配置：json文件 → 展示期数（顺序=按钮顺序）
+WINDOW_CONFIG = [
+    {'file': 'best_formula.json', 'win': 200, 'label': '200期'},
+    {'file': 'best_formula_300.json', 'win': 300, 'label': '300期'},
+]
+
 
 def explain(formula):
     parts = []
@@ -54,23 +61,54 @@ def explain(formula):
 
 
 def build_data():
-    with open('best_formula.json', 'r', encoding='utf-8') as f:
-        bf = json.load(f)
-    combo = bf['combo']
     issues, hh, tt, oo = load_data(CSV_PATH)
     latest = issues[-1]
     last_draw = ''.join(map(str, [hh[-1], tt[-1], oo[-1]]))
 
-    bt200 = backtest.run_backtest(CSV_PATH, combo, n=200)
-    pred = backtest.predict_next(CSV_PATH, combo)
-    s200 = bt200['summary']
-    rows = [{
-        'issue': r['issue'], 'draw': ''.join(map(str, r['draw'])),
-        'kh': r['kh'], 'kt': r['kt'], 'ko': r['ko'],
-        'hh': r['h_hit'], 'th': r['t_hit'], 'oh': r['o_hit'], 'ah': r['all_hit'],
-    } for r in bt200['results']]
+    # 逐窗口构建：公式/白话/回测/预测杀码
+    windows = {}
+    pool_main = None
+    for cfg in WINDOW_CONFIG:
+        try:
+            with open(cfg['file'], 'r', encoding='utf-8') as f:
+                bf = json.load(f)
+            combo = bf['combo']
+            pool_main = pool_main or bf.get('pool_size')
+        except Exception:
+            continue
+        bt = backtest.run_backtest(CSV_PATH, combo, n=cfg['win'])
+        s = bt['summary']
+        rows = [{
+            'issue': r['issue'], 'draw': ''.join(map(str, r['draw'])),
+            'kh': r['kh'], 'kt': r['kt'], 'ko': r['ko'],
+            'hh': r['h_hit'], 'th': r['t_hit'], 'oh': r['o_hit'], 'ah': r['all_hit'],
+        } for r in bt['results']]
+        windows[cfg['win']] = {
+            'window': cfg['win'],
+            'combo': combo,
+            'explain': {pos: explain(combo[pos]) for pos in ['h', 't', 'o']},
+            's': {'h': s['hundreds_hit_rate'], 't': s['tens_hit_rate'],
+                  'o': s['ones_hit_rate'], 'all': s['all_hit_rate'],
+                  'total': s['total_periods']},
+            'max_streak': s['max_streak'],
+            'rows': rows,
+        }
 
-    # 每日预测跟踪数据（predictions_log.csv）
+    # 各窗口下期预测：200主窗口优先取跟踪日志最新pending（开奖前落盘，保证页面=跟踪一致）
+    # 300窗口为纯公式重算（跟踪仅跟随200，不做300真实跟踪）
+    for w in list(windows.keys()):
+        d = windows[w]
+        pred = backtest.predict_next(CSV_PATH, d['combo'])
+        d['next_issue'] = pred['next_issue']
+        d['last_issue'] = pred['last_issue']
+        d['last_draw'] = pred['last_draw']
+        if w == 200:
+            # 主窗口：优先跟踪日志 pending（与历史行为一致）
+            d['kh'], d['kt'], d['ko'], d['src'] = _pending_or_formula(d['combo'], pred)
+        else:
+            d['kh'], d['kt'], d['ko'], d['src'] = pred['kh'], pred['kt'], pred['ko'], 'formula'
+
+    # 每日预测跟踪数据（与窗口无关）
     track = {}
     try:
         import track_predictions as tp
@@ -91,35 +129,36 @@ def build_data():
                 'verified_at': r.get('verified_at', ''),
             } for r in recent30],  # 近期→远期
         }
-        # 页面预测数字：优先取跟踪日志最新 pending 预测（开奖前真实落盘值），
-        # 避免公式变更时页面(新公式)与跟踪(旧公式)不一致；无 pending 时才用公式重算
-        pending_rows = [r for r in track_rows if r.get('status') == 'pending']
-        if pending_rows:
-            latest_pending = pending_rows[-1]
-            pred_kh = int(latest_pending['kh']); pred_kt = int(latest_pending['kt']); pred_ko = int(latest_pending['ko'])
-        else:
-            pred_kh, pred_kt, pred_ko = pred['kh'], pred['kt'], pred['ko']
     except Exception as e:
         track = {'summary': None, 'rows': [], 'error': str(e)[:60]}
-        pred_kh, pred_kt, pred_ko = pred['kh'], pred['kt'], pred['ko']
 
+    d200 = windows.get(200)
+    d_first = windows.get(300) or d200
     return {
         'data_info': {'n_issues': len(issues), 'first': issues[0], 'last': issues[-1]},
-        'next_issue': pred['next_issue'],
-        'last_issue': pred['last_issue'],
+        'next_issue': (d200 or d_first)['next_issue'] if (d200 or d_first) else '',
+        'last_issue': latest,
         'last_draw': last_draw,
         'updated': datetime.datetime.now(BJT).strftime('%Y-%m-%d %H:%M'),
-        'pool_size': bf.get('pool_size'),
-        'combo': combo,
-        'explain': {pos: explain(combo[pos]) for pos in ['h', 't', 'o']},
-        'kh': pred_kh, 'kt': pred_kt, 'ko': pred_ko,
-        's200': {'h': s200['hundreds_hit_rate'], 't': s200['tens_hit_rate'],
-                 'o': s200['ones_hit_rate'], 'all': s200['all_hit_rate'],
-                 'total': s200['total_periods']},
-        'max_streak': s200['max_streak'],
-        'rows': rows,
+        'pool_size': pool_main,
+        'windows': windows,
         'track': track,
     }
+
+
+def _pending_or_formula(combo, pred):
+    """主窗口(200)：优先返回跟踪日志最新 pending 预测杀码（开奖前真实落盘值），
+    避免公式变更时页面(新公式)与跟踪(旧公式)不一致；无 pending 才用公式重算。"""
+    try:
+        import track_predictions as tp
+        rows = sorted(tp._load_log().values(), key=lambda x: int(x['issue']))
+        pend = [r for r in rows if r.get('status') == 'pending']
+        if pend:
+            lp = pend[-1]
+            return int(lp['kh']), int(lp['kt']), int(lp['ko']), 'track'
+    except Exception:
+        pass
+    return pred['kh'], pred['kt'], pred['ko'], 'formula'
 
 
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -127,7 +166,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>福彩3D 百十个位各杀一码 · 暴力穷举200期</title>
+<title>福彩3D 百十个位各杀一码 · 暴力穷举200/300期</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #333; }
@@ -139,6 +178,11 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
 .banner .issue { font-size: 1.4rem; font-weight: 700; color: #e65100; }
 .banner .last { font-size: .75rem; color: #856404; margin-top: 2px; }
 .banner .time { font-size: .65rem; color: #999; }
+.win-switch { display: flex; gap: 6px; margin-bottom: 8px; }
+.wb { flex: 1; padding: 9px 0; border: 1.5px solid #d5d5e0; background: #fff; border-radius: 8px; font-size: .85rem; font-weight: 700; color: #666; cursor: pointer; transition: all .15s; }
+.wb.on { background: #5b3cc4; border-color: #5b3cc4; color: #fff; box-shadow: 0 1px 5px rgba(91,60,196,.3); }
+.wb:active { transform: scale(.97); }
+.win-note { font-size: .62rem; color: #b26a00; background: #fff3e0; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; line-height: 1.5; display: none; }
 .kill-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 8px; }
 .kill-card { background: #fff; border-radius: 8px; padding: 12px 6px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
 .kill-card .pos-label { font-size: .7rem; color: #888; }
@@ -175,32 +219,37 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
 <div class="container">
 <div class="header">
   <h1>福彩3D 百十个位各杀一码</h1>
-  <div class="sub">暴力穷举 · 只参考最新200期 · 每位置各杀1码 · 纯本地网页</div>
+  <div class="sub">暴力穷举 · 每位置各杀1码 · <span id="subWin">200</span>/300期双窗口可切换</div>
 </div>
 <div class="banner">
   <div class="issue" id="predIssue">-</div>
   <div class="last" id="lastInfo"></div>
   <div class="time" id="updateTime"></div>
 </div>
+<div class="win-switch">
+  <button class="wb on" id="winBtn200" onclick="switchWin(200)">近200期</button>
+  <button class="wb" id="winBtn300" onclick="switchWin(300)">近300期</button>
+</div>
+<div class="win-note" id="winNote">※ 300期窗口仅供对比参考；每日真实跟踪仅跟随200期主公式</div>
 <div class="kill-grid">
   <div class="kill-card"><div class="pos-label">百位杀一码</div><span class="num" id="kh">-</span></div>
   <div class="kill-card"><div class="pos-label">十位杀一码</div><span class="num" id="kt">-</span></div>
   <div class="kill-card"><div class="pos-label">个位杀一码</div><span class="num" id="ko">-</span></div>
 </div>
 <div class="stats">
-  <div class="stat"><div class="val g" id="sH">-</div><div class="lbl">百位(近200)</div></div>
-  <div class="stat"><div class="val o" id="sT">-</div><div class="lbl">十位(近200)</div></div>
-  <div class="stat"><div class="val o" id="sO">-</div><div class="lbl">个位(近200)</div></div>
+  <div class="stat"><div class="val g" id="sH">-</div><div class="lbl">百位命中</div></div>
+  <div class="stat"><div class="val o" id="sT">-</div><div class="lbl">十位命中</div></div>
+  <div class="stat"><div class="val o" id="sO">-</div><div class="lbl">个位命中</div></div>
   <div class="stat stat-main"><div class="val g" id="sAll">-</div><div class="lbl">★3杀全中</div></div>
 </div>
 <div class="stats">
-  <div class="stat"><div class="val" id="sStreak">-</div><div class="lbl">近200连错max</div></div>
+  <div class="stat"><div class="val" id="sStreak">-</div><div class="lbl">连错max</div></div>
   <div class="stat"><div class="val" id="sTotal">-</div><div class="lbl">回测期数</div></div>
   <div class="stat"><div class="val" id="sPool">-</div><div class="lbl">穷举公式数</div></div>
-  <div class="stat"><div class="val">200</div><div class="lbl">窗口</div></div>
+  <div class="stat"><div class="val" id="winVal">200</div><div class="lbl">当前窗口</div></div>
 </div>
 <div class="table-wrap">
-  <h3>近200期回测 <span style="font-size:.65rem;color:#999">(逐期真实预测 · 最新在前)</span> <span style="font-size:.65rem;color:#999;float:right">✓中 ✗错</span></h3>
+  <h3>回测明细 <span style="font-size:.65rem;color:#999">(逐期真实预测 · 最新在前)</span> <span style="font-size:.65rem;color:#999;float:right">✓中 ✗错</span></h3>
   <div class="scroll">
     <table class="tbl">
       <thead><tr><th>期号</th><th>开奖</th><th>百杀</th><th>十杀</th><th>个杀</th><th>百</th><th>十</th><th>个</th><th>全中</th></tr></thead>
@@ -209,10 +258,10 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
   </div>
 </div>
 <div class="info">
-  <h3>三条最优公式（暴力穷举·最新200期命中率最高）</h3>
+  <h3>三条最优公式（暴力穷举·<span id="algoWin">200</span>期窗口）</h3>
   <div id="algoList"></div>
   <div style="font-size:.68rem;color:#888;margin-top:8px;line-height:1.6">
-    3杀全中随机基线 72.9%（每位置杀1码 0.9³）。本套近200期全中 <b id="allVal">-</b>。
+    3杀全中随机基线 72.9%（每位置杀1码 0.9³）。本窗口全中 <b id="allVal">-</b>。
   </div>
 </div>
 <div class="table-wrap">
@@ -229,7 +278,7 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
   </div>
   <div style="padding:0 12px 8px;font-size:.62rem;color:#999;line-height:1.6">
     预测在<b>开奖前落盘</b>（第i期只用第i-1/i-2期数据），开奖后自动回填判定。<b>真实跟踪</b>从启用日起逐期累计，
-    是唯一的样本外指标；历史回填=公式拟合窗口，数字偏乐观。
+    是唯一的样本外指标；历史回填=公式拟合窗口，数字偏乐观。<br>跟踪仅跟随<b>200期主公式</b>，300期不重复跟踪。
   </div>
   <div class="scroll" style="max-height:280px">
     <table class="tbl">
@@ -239,40 +288,58 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
   </div>
 </div>
 <div class="foot">
-  仅供研究参考 · 不构成投注建议 · 近200期为暴力穷举最优结果，属历史拟合，样本外会回落<br>
+  仅供研究参考 · 不构成投注建议 · 近N期为暴力穷举最优结果，属历史拟合，样本外会回落<br>
   数据截止 <span id="dataInfo"></span> 期
 </div>
 </div>
 <script>
 const P = __DATA__;
-document.getElementById('kh').textContent = P.kh;
-document.getElementById('kt').textContent = P.kt;
-document.getElementById('ko').textContent = P.ko;
-document.getElementById('sH').textContent = P.s200.h + '%';
-document.getElementById('sT').textContent = P.s200.t + '%';
-document.getElementById('sO').textContent = P.s200.o + '%';
-document.getElementById('sAll').textContent = P.s200.all + '%';
-document.getElementById('sStreak').textContent = P.max_streak + '期';
-document.getElementById('sTotal').textContent = P.s200.total + '期';
-document.getElementById('sPool').textContent = P.pool_size >= 10000 ? (P.pool_size/10000).toFixed(1) + '万' : P.pool_size;
-document.getElementById('allVal').textContent = P.s200.all + '%';
-document.getElementById('algoList').innerHTML =
-  '<div class="algo"><b>百位</b> <span class="f">' + P.combo.h + '</span><span class="zh">' + P.explain.h + '</span></div>' +
-  '<div class="algo"><b>十位</b> <span class="f">' + P.combo.t + '</span><span class="zh">' + P.explain.t + '</span></div>' +
-  '<div class="algo"><b>个位</b> <span class="f">' + P.combo.o + '</span><span class="zh">' + P.explain.o + '</span></div>';
-const tbody = document.getElementById('btBody');
-P.rows.forEach(function(r) {
-  const tr = document.createElement('tr');
-  tr.className = r.ah ? 'tr-hit' : 'tr-miss';
-  tr.innerHTML =
-    '<td>' + r.issue + '</td><td><b>' + r.draw + '</b></td>' +
-    '<td class="kill">' + r.kh + '</td><td class="kill">' + r.kt + '</td><td class="kill">' + r.ko + '</td>' +
-    '<td class="' + (r.hh?'badge-y':'badge-n') + '">' + (r.hh?'✓':'✗') + '</td>' +
-    '<td class="' + (r.th?'badge-y':'badge-n') + '">' + (r.th?'✓':'✗') + '</td>' +
-    '<td class="' + (r.oh?'badge-y':'badge-n') + '">' + (r.oh?'✓':'✗') + '</td>' +
-    '<td class="' + (r.ah?'badge-y':'badge-n') + '">' + (r.ah?'✓全中':'✗') + '</td>';
-  tbody.appendChild(tr);
-});
+const W = P.windows || {};
+let CUR = (200 in W) ? 200 : ((300 in W) ? 300 : null);
+
+function render(w) {
+  const D = W[w];
+  if (!D) return;
+  CUR = w;
+  document.getElementById('kh').textContent = D.kh;
+  document.getElementById('kt').textContent = D.kt;
+  document.getElementById('ko').textContent = D.ko;
+  document.getElementById('sH').textContent = D.s.h + '%';
+  document.getElementById('sT').textContent = D.s.t + '%';
+  document.getElementById('sO').textContent = D.s.o + '%';
+  document.getElementById('sAll').textContent = D.s.all + '%';
+  document.getElementById('sStreak').textContent = D.max_streak + '期';
+  document.getElementById('sTotal').textContent = D.s.total + '期';
+  document.getElementById('sPool').textContent = P.pool_size >= 10000 ? (P.pool_size/10000).toFixed(1) + '万' : P.pool_size;
+  document.getElementById('winVal').textContent = w;
+  document.getElementById('subWin').textContent = w;
+  document.getElementById('algoWin').textContent = w;
+  document.getElementById('allVal').textContent = D.s.all + '%';
+  document.getElementById('winBtn200').className = 'wb' + (w === 200 ? ' on' : '');
+  document.getElementById('winBtn300').className = 'wb' + (w === 300 ? ' on' : '');
+  document.getElementById('winNote').style.display = (w === 300) ? 'block' : 'none';
+  document.getElementById('algoList').innerHTML =
+    '<div class="algo"><b>百位</b> <span class="f">' + D.combo.h + '</span><span class="zh">' + D.explain.h + '</span></div>' +
+    '<div class="algo"><b>十位</b> <span class="f">' + D.combo.t + '</span><span class="zh">' + D.explain.t + '</span></div>' +
+    '<div class="algo"><b>个位</b> <span class="f">' + D.combo.o + '</span><span class="zh">' + D.explain.o + '</span></div>';
+  const tbody = document.getElementById('btBody');
+  tbody.innerHTML = '';
+  D.rows.forEach(function(r) {
+    const tr = document.createElement('tr');
+    tr.className = r.ah ? 'tr-hit' : 'tr-miss';
+    tr.innerHTML =
+      '<td>' + r.issue + '</td><td><b>' + r.draw + '</b></td>' +
+      '<td class="kill">' + r.kh + '</td><td class="kill">' + r.kt + '</td><td class="kill">' + r.ko + '</td>' +
+      '<td class="' + (r.hh ? 'badge-y' : 'badge-n') + '">' + (r.hh ? '✓' : '✗') + '</td>' +
+      '<td class="' + (r.th ? 'badge-y' : 'badge-n') + '">' + (r.th ? '✓' : '✗') + '</td>' +
+      '<td class="' + (r.oh ? 'badge-y' : 'badge-n') + '">' + (r.oh ? '✓' : '✗') + '</td>' +
+      '<td class="' + (r.ah ? 'badge-y' : 'badge-n') + '">' + (r.ah ? '✓全中' : '✗') + '</td>';
+    tbody.appendChild(tr);
+  });
+}
+function switchWin(w) { if (W[w]) render(w); }
+
+render(CUR);
 document.getElementById('predIssue').textContent = P.next_issue;
 document.getElementById('lastInfo').textContent = '上期 ' + P.last_issue + ' = ' + P.last_draw;
 document.getElementById('updateTime').textContent = '更新 ' + P.updated;
@@ -319,9 +386,11 @@ def main(out_path='index.html'):
     with open(out_path, 'w', encoding='utf-8') as f:
         f.write(html)
     print(f"✅ 已生成 {out_path} ({len(html)} 字节)")
-    print(f"预测期号: {data['next_issue']} | 上期 {data['last_issue']}={data['last_draw']}")
-    print(f"  百位杀{data['kh']}  十位杀{data['kt']}  个位杀{data['ko']}")
-    print(f"  近200: 百{data['s200']['h']}% 十{data['s200']['t']}% 个{data['s200']['o']}% | 3杀全中{data['s200']['all']}% | 连错{data['max_streak']}期")
+    for w, d in data.get('windows', {}).items():
+        print(f"  [{w}期] 预测{d['kh']}/{d['kt']}/{d['ko']}({d.get('src','')}) | "
+              f"百{d['s']['h']}% 十{d['s']['t']}% 个{d['s']['o']}% | "
+              f"3杀全中{d['s']['all']}% | 连错{d['max_streak']}期 | {d['s']['total']}期")
+    print(f"数据: {data['data_info']['first']}~{data['data_info']['last']} | 下期 {data['next_issue']}")
 
 
 if __name__ == '__main__':
