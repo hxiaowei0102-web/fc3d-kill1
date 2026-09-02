@@ -56,8 +56,8 @@ jobs:
           if [ "${{ inputs.force_deploy }}" == "true" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "force_deploy=true: 强制部署"
-          # 以核心产物判断：CSV/双窗口公式/页面/预测日志 任一有变化才算真实更新（无变化时脚本不重写页面，时间戳不会误判）
-          elif git diff --quiet data/fc3d-history.csv && git diff --quiet best_formula.json && git diff --quiet best_formula_300.json && git diff --quiet static/index.html && git diff --quiet predictions_log.csv; then
+          # 以核心产物判断：CSV/双窗口公式/页面/双窗口预测日志 任一有变化才算真实更新（无变化时脚本不重写页面，时间戳不会误判）
+          elif git diff --quiet data/fc3d-history.csv && git diff --quiet best_formula.json && git diff --quiet best_formula_300.json && git diff --quiet static/index.html && git diff --quiet predictions_log.csv && git diff --quiet predictions_log_300.csv; then
             echo "changed=false" >> $GITHUB_OUTPUT
             git checkout -- static/index.html 2>/dev/null || true
             echo "无新数据/无公式变化，跳过提交与部署"
@@ -71,7 +71,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A data/ static/ best_formula.json best_formula_300.json predictions_log.csv || true
+          git add -A data/ static/ best_formula.json best_formula_300.json predictions_log.csv predictions_log_300.csv || true
           git commit -m "自动更新$(TZ='Asia/Shanghai' date +%m%d) [skip ci]" || true
           for i in 1 2 3; do
             if git pull --rebase origin main && git push; then

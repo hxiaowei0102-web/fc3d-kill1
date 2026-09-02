@@ -21,7 +21,8 @@ from engine import load_data, get_next_issue
 from formulas import make_predictor
 
 CSV_PATH = 'data/fc3d-history.csv'
-LOG_PATH = 'predictions_log.csv'
+LOG_PATH = 'predictions_log.csv'          # 200期主窗口 跟踪日志
+LOG_300_PATH = 'predictions_log_300.csv'  # 300期副窗口 独立跟踪日志
 HEADER = ['issue', 'kh', 'kt', 'ko', 'prev_issue', 'prev_draw',
           'formula_h', 'formula_t', 'formula_o',
           'draw', 'h_hit', 't_hit', 'o_hit', 'all_hit', 'status', 'source',
@@ -69,13 +70,13 @@ def _compute_kills(combo, prev_draw, prev2_draw):
     }
 
 
-def backfill_history(combo, n=60):
+def backfill_history(combo, n=60, path=LOG_PATH):
     """用固定公式回填最近n期历史预测并验证（第i期预测只用i-1期数据）。
     source=backfill 标记历史回填（区分真实每日跟踪）。
     返回新增的已验证记录数。"""
     issues, hh, tt, oo = load_data(CSV_PATH)
     N = len(issues)
-    rows = _load_log()
+    rows = _load_log(path)
     added = 0
     start = max(2, N - n)  # 需要前2期数据，从第2期起
     for i in range(start, N):
@@ -103,16 +104,16 @@ def backfill_history(combo, n=60):
             'predicted_at': '回填', 'verified_at': '回填',
         }
         added += 1
-    _save_log(rows)
+    _save_log(rows, path)
     return added
 
 
-def verify_pending(combo):
+def verify_pending(combo, path=LOG_PATH):
     """验证所有 pending 预测：对应期号已开奖 → 回填判定。
     返回 (验证条数, 全中条数, 失误条数)"""
     issues, hh, tt, oo = load_data(CSV_PATH)
     draw_map = {iss: (h, t, o) for iss, h, t, o in zip(issues, hh, tt, oo)}
-    rows = _load_log()
+    rows = _load_log(path)
     verified = hit = miss = 0
     for iss, row in rows.items():
         if row.get('status') != STATUS['PENDING']:
@@ -137,13 +138,13 @@ def verify_pending(combo):
             hit += 1
         else:
             miss += 1
-    _save_log(rows)
+    _save_log(rows, path)
     return verified, hit, miss
 
 
-def add_prediction(combo, issue=None):
+def add_prediction(combo, issue=None, path=LOG_PATH):
     """追加今日新预测（系统当前对下一期的预测）。幂等：该期已记录则跳过。"""
-    rows = _load_log()
+    rows = _load_log(path)
     issues, hh, tt, oo = load_data(CSV_PATH)
     latest = issues[-1]
     if issue is None:
@@ -161,7 +162,7 @@ def add_prediction(combo, issue=None):
         'status': STATUS['PENDING'], 'source': 'live',
         'predicted_at': _now_bjt(), 'verified_at': '',
     }
-    _save_log(rows)
+    _save_log(rows, path)
     return 1
 
 
@@ -215,59 +216,79 @@ def summarize(combo=None, path=LOG_PATH):
     }
 
 
-def main():
+def main(combo_path='best_formula.json', log_path=LOG_PATH, label=''):
+    """对指定窗口跑完整跟踪：回填初始化→验证pending→追加今日→汇总。
+    combo_path: 该窗口的公式 json；log_path: 该窗口跟踪日志。
+    返回 track_changed:bool。"""
     import sys, io
     # 若 stdout 已被外层包装(如 auto_update.py)，则不再重复包装
     try:
         sys.stdout.reconfigure(encoding='utf-8')
     except Exception:
         pass
-    with open('best_formula.json', 'r', encoding='utf-8') as f:
+    with open(combo_path, 'r', encoding='utf-8') as f:
         combo = json.load(f)['combo']
-
+    tag = f'[{label}] ' if label else ''
     print("=" * 50)
-    print("  每日预测跟踪 · 更新")
+    print(f"{tag}每日预测跟踪 · 更新 ({combo_path})")
     print("=" * 50)
 
     track_changed = False
 
     # 1. 首次启用时回填历史基准（500期，含拟合窗内外，诚实呈现真实水平）
     #    之后不再回填，只做「验证 pending + 追加新预测」的真实每日跟踪
-    if not os.path.exists(LOG_PATH):
-        backfilled = backfill_history(combo, n=500)
-        print(f"[初始化] 首次启用，回填 {backfilled} 条历史预测作为基准（最近500期）")
+    if not os.path.exists(log_path):
+        backfilled = backfill_history(combo, n=500, path=log_path)
+        print(f"{tag}[初始化] 首次启用，回填 {backfilled} 条历史预测作为基准（最近500期）")
         if backfilled:
             track_changed = True
     else:
-        print("[初始化] 日志已存在，跳过历史回填（只做真实每日跟踪）")
+        print(f"{tag}[初始化] 日志已存在，跳过历史回填（只做真实每日跟踪）")
 
     # 2. 验证 pending
-    verified, hit, miss = verify_pending(combo)
+    verified, hit, miss = verify_pending(combo, path=log_path)
     if verified:
-        print(f"[验证] 验证 {verified} 条预测: 全中 {hit} | 失误 {miss}")
+        print(f"{tag}[验证] 验证 {verified} 条预测: 全中 {hit} | 失误 {miss}")
         track_changed = True
     else:
-        print("[验证] 无待验证预测")
+        print(f"{tag}[验证] 无待验证预测")
 
     # 3. 追加今日新预测
-    added = add_prediction(combo)
+    added = add_prediction(combo, path=log_path)
     if added:
-        print(f"[新增] 已记录今日新预测（开奖前落盘）")
+        print(f"{tag}[新增] 已记录今日新预测（开奖前落盘）")
         track_changed = True
     else:
-        print("[新增] 今日预测已存在，跳过")
+        print(f"{tag}[新增] 今日预测已存在，跳过")
 
     # 4. 汇总
-    s = summarize(combo)
+    s = summarize(combo, path=log_path)
     print("-" * 50)
-    print(f"累计已验证: {s['verified']} 期 | 待开奖: {s['pending']} 期")
-    print(f"3杀全中率: {s['all_hit_rate']}% ({s['all_hits']}/{s['verified']})")
-    print(f"百位 {s['h_rate']}% | 十位 {s['t_rate']}% | 个位 {s['o_rate']}%")
-    print(f"最大连错: {s['max_miss_streak']} 期 | 近30期3杀全中 {s['recent30_all']}%")
+    print(f"{tag}累计已验证: {s['verified']} 期 | 待开奖: {s['pending']} 期")
+    print(f"{tag}3杀全中率: {s['all_hit_rate']}% ({s['all_hits']}/{s['verified']})")
+    print(f"{tag}百位 {s['h_rate']}% | 十位 {s['t_rate']}% | 个位 {s['o_rate']}%")
+    print(f"{tag}最大连错: {s['max_miss_streak']} 期 | 近30期3杀全中 {s['recent30_all']}%")
     lv, bk = s['live'], s['backfill']
-    print(f"[真实跟踪] {lv['verified']}期 3杀全中 {lv['all_hit_rate']}% | [历史回填] {bk['verified']}期 3杀全中 {bk['all_hit_rate']}%")
+    print(f"{tag}[真实跟踪] {lv['verified']}期 3杀全中 {lv['all_hit_rate']}% | [历史回填] {bk['verified']}期 3杀全中 {bk['all_hit_rate']}%")
     return track_changed
 
 
+def run_both():
+    """200期主窗口 + 300期副窗口 各自独立跟踪。返回是否任一有变化。"""
+    c1 = main('best_formula.json', LOG_PATH, '200')
+    try:
+        # 300期用 best_formula_300.json；若不存在（数据不足）则跳过
+        import os as _os
+        if _os.path.exists('best_formula_300.json'):
+            c2 = main('best_formula_300.json', LOG_300_PATH, '300')
+        else:
+            print("[300] best_formula_300.json 不存在，跳过300期跟踪")
+            c2 = False
+    except Exception as e:
+        print(f"[300] ⚠ 300期跟踪异常: {str(e)[:80]}")
+        c2 = False
+    return c1 or c2
+
+
 if __name__ == '__main__':
-    main()
+    run_both()

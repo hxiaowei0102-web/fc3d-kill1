@@ -37,10 +37,10 @@ FEAT_ZH = {
     'bpr': '近2期百位积尾', 'spr': '近2期十位积尾', 'gpr': '近2期个位积尾',
 }
 
-# 参与页面展示的窗口配置：json文件 → 展示期数（顺序=按钮顺序）
+# 参与页面展示的窗口配置：json文件 → 展示期数 → 该窗口独立跟踪日志（顺序=按钮顺序）
 WINDOW_CONFIG = [
-    {'file': 'best_formula.json', 'win': 200, 'label': '200期'},
-    {'file': 'best_formula_300.json', 'win': 300, 'label': '300期'},
+    {'file': 'best_formula.json', 'win': 200, 'label': '200期', 'log': 'predictions_log.csv'},
+    {'file': 'best_formula_300.json', 'win': 300, 'label': '300期', 'log': 'predictions_log_300.csv'},
 ]
 
 
@@ -65,7 +65,7 @@ def build_data():
     latest = issues[-1]
     last_draw = ''.join(map(str, [hh[-1], tt[-1], oo[-1]]))
 
-    # 逐窗口构建：公式/白话/回测/预测杀码
+    # 逐窗口构建：公式/白话/回测 + 各自独立跟踪看板 + 各自 pending 预测
     windows = {}
     pool_main = None
     for cfg in WINDOW_CONFIG:
@@ -83,6 +83,7 @@ def build_data():
             'kh': r['kh'], 'kt': r['kt'], 'ko': r['ko'],
             'hh': r['h_hit'], 'th': r['t_hit'], 'oh': r['o_hit'], 'ah': r['all_hit'],
         } for r in bt['results']]
+        pred = backtest.predict_next(CSV_PATH, combo)
         windows[cfg['win']] = {
             'window': cfg['win'],
             'combo': combo,
@@ -92,73 +93,62 @@ def build_data():
                   'total': s['total_periods']},
             'max_streak': s['max_streak'],
             'rows': rows,
+            'next_issue': pred['next_issue'],
+            'last_issue': pred['last_issue'],
+            'last_draw': pred['last_draw'],
         }
-
-    # 各窗口下期预测：200主窗口优先取跟踪日志最新pending（开奖前落盘，保证页面=跟踪一致）
-    # 300窗口为纯公式重算（跟踪仅跟随200，不做300真实跟踪）
-    for w in list(windows.keys()):
-        d = windows[w]
-        pred = backtest.predict_next(CSV_PATH, d['combo'])
-        d['next_issue'] = pred['next_issue']
-        d['last_issue'] = pred['last_issue']
-        d['last_draw'] = pred['last_draw']
-        if w == 200:
-            # 主窗口：优先跟踪日志 pending（与历史行为一致）
-            d['kh'], d['kt'], d['ko'], d['src'] = _pending_or_formula(d['combo'], pred)
-        else:
+        # 每窗口独立跟踪：优先取本窗口日志最新 pending（开奖前真实落盘），无则公式重算
+        d = windows[cfg['win']]
+        try:
+            import track_predictions as tp
+            tk_rows = sorted(tp._load_log(cfg['log']).values(), key=lambda x: int(x['issue']))
+            d['track'] = _track_block(tk_rows, cfg['log'])
+            pend = [r for r in tk_rows if r.get('status') == 'pending']
+            if pend:
+                lp = pend[-1]
+                d['kh'], d['kt'], d['ko'], d['src'] = int(lp['kh']), int(lp['kt']), int(lp['ko']), 'track'
+            else:
+                d['kh'], d['kt'], d['ko'], d['src'] = pred['kh'], pred['kt'], pred['ko'], 'formula'
+        except Exception as e:
+            d['track'] = {'summary': None, 'rows': [], 'error': str(e)[:60]}
             d['kh'], d['kt'], d['ko'], d['src'] = pred['kh'], pred['kt'], pred['ko'], 'formula'
-
-    # 每日预测跟踪数据（与窗口无关）
-    track = {}
-    try:
-        import track_predictions as tp
-        track_sum = tp.summarize()
-        track_rows = sorted(tp._load_log().values(), key=lambda x: int(x['issue']))
-        # 最近30期明细：倒序 = 近期到远期（最新期在最上面）
-        recent30 = track_rows[-30:][::-1]
-        track = {
-            'summary': track_sum,
-            'rows': [{
-                'issue': r['issue'],
-                'kills': f"{r['kh']}{r['kt']}{r['ko']}",
-                'draw': r.get('draw', ''),
-                'status': r.get('status', ''),
-                'source': r.get('source', ''),
-                'all_hit': r.get('all_hit', ''),
-                'predicted_at': r.get('predicted_at', ''),
-                'verified_at': r.get('verified_at', ''),
-            } for r in recent30],  # 近期→远期
-        }
-    except Exception as e:
-        track = {'summary': None, 'rows': [], 'error': str(e)[:60]}
 
     d200 = windows.get(200)
     d_first = windows.get(300) or d200
+    # 默认横幅预测：200窗口的 pending（若有），否则第一个可用窗口
+    base = d200 or d_first
     return {
         'data_info': {'n_issues': len(issues), 'first': issues[0], 'last': issues[-1]},
-        'next_issue': (d200 or d_first)['next_issue'] if (d200 or d_first) else '',
+        'next_issue': base['next_issue'] if base else '',
         'last_issue': latest,
         'last_draw': last_draw,
         'updated': datetime.datetime.now(BJT).strftime('%Y-%m-%d %H:%M'),
         'pool_size': pool_main,
         'windows': windows,
-        'track': track,
     }
 
 
-def _pending_or_formula(combo, pred):
-    """主窗口(200)：优先返回跟踪日志最新 pending 预测杀码（开奖前真实落盘值），
-    避免公式变更时页面(新公式)与跟踪(旧公式)不一致；无 pending 才用公式重算。"""
+def _track_block(tk_rows, log_path):
+    """把某窗口跟踪日志转成页面看板块：summary + 近30期明细（近期→远期）"""
     try:
         import track_predictions as tp
-        rows = sorted(tp._load_log().values(), key=lambda x: int(x['issue']))
-        pend = [r for r in rows if r.get('status') == 'pending']
-        if pend:
-            lp = pend[-1]
-            return int(lp['kh']), int(lp['kt']), int(lp['ko']), 'track'
+        track_sum = tp.summarize(path=log_path)
     except Exception:
-        pass
-    return pred['kh'], pred['kt'], pred['ko'], 'formula'
+        track_sum = None
+    recent30 = tk_rows[-30:][::-1]
+    return {
+        'summary': track_sum,
+        'rows': [{
+            'issue': r['issue'],
+            'kills': f"{r['kh']}{r['kt']}{r['ko']}",
+            'draw': r.get('draw', ''),
+            'status': r.get('status', ''),
+            'source': r.get('source', ''),
+            'all_hit': r.get('all_hit', ''),
+            'predicted_at': r.get('predicted_at', ''),
+            'verified_at': r.get('verified_at', ''),
+        } for r in recent30],
+    }
 
 
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -230,7 +220,7 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
   <button class="wb on" id="winBtn200" onclick="switchWin(200)">近200期</button>
   <button class="wb" id="winBtn300" onclick="switchWin(300)">近300期</button>
 </div>
-<div class="win-note" id="winNote">※ 300期窗口仅供对比参考；每日真实跟踪仅跟随200期主公式</div>
+<div class="win-note" id="winNote">※ 本窗口预测数字与下方跟踪看板，均来自该窗口自身的独立每日跟踪</div>
 <div class="kill-grid">
   <div class="kill-card"><div class="pos-label">百位杀一码</div><span class="num" id="kh">-</span></div>
   <div class="kill-card"><div class="pos-label">十位杀一码</div><span class="num" id="kt">-</span></div>
@@ -265,7 +255,7 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
   </div>
 </div>
 <div class="table-wrap">
-  <h3>📈 每日预测跟踪 <span style="font-size:.65rem;color:#999">(开奖前记录 · 开奖后回填 · 真实样本外)</span></h3>
+  <h3>📈 每日预测跟踪 · 近<span id="tkWin">200</span>期 <span style="font-size:.65rem;color:#999">(开奖前记录 · 开奖后回填 · 各窗口独立)</span></h3>
   <div class="stats" style="margin:8px 4px;grid-template-columns:1fr 1fr 1fr">
     <div class="stat stat-main"><div class="val g" id="tkAll">-</div><div class="lbl">★3杀全中率(已验证)</div></div>
     <div class="stat"><div class="val" id="tkVerified">-</div><div class="lbl">已验证期数</div></div>
@@ -278,7 +268,8 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
   </div>
   <div style="padding:0 12px 8px;font-size:.62rem;color:#999;line-height:1.6">
     预测在<b>开奖前落盘</b>（第i期只用第i-1/i-2期数据），开奖后自动回填判定。<b>真实跟踪</b>从启用日起逐期累计，
-    是唯一的样本外指标；历史回填=公式拟合窗口，数字偏乐观。<br>跟踪仅跟随<b>200期主公式</b>，300期不重复跟踪。
+    是唯一的样本外指标；历史回填=公式拟合窗口，数字偏乐观。<br>200期与300期<b>各自独立跟踪</b>（独立日志、独立公式），
+    切换上方窗口即切换对应跟踪看板。
   </div>
   <div class="scroll" style="max-height:280px">
     <table class="tbl">
@@ -314,10 +305,11 @@ function render(w) {
   document.getElementById('winVal').textContent = w;
   document.getElementById('subWin').textContent = w;
   document.getElementById('algoWin').textContent = w;
+  document.getElementById('tkWin').textContent = w;
   document.getElementById('allVal').textContent = D.s.all + '%';
   document.getElementById('winBtn200').className = 'wb' + (w === 200 ? ' on' : '');
   document.getElementById('winBtn300').className = 'wb' + (w === 300 ? ' on' : '');
-  document.getElementById('winNote').style.display = (w === 300) ? 'block' : 'none';
+  document.getElementById('winNote').style.display = 'none';
   document.getElementById('algoList').innerHTML =
     '<div class="algo"><b>百位</b> <span class="f">' + D.combo.h + '</span><span class="zh">' + D.explain.h + '</span></div>' +
     '<div class="algo"><b>十位</b> <span class="f">' + D.combo.t + '</span><span class="zh">' + D.explain.t + '</span></div>' +
@@ -336,17 +328,10 @@ function render(w) {
       '<td class="' + (r.ah ? 'badge-y' : 'badge-n') + '">' + (r.ah ? '✓全中' : '✗') + '</td>';
     tbody.appendChild(tr);
   });
+  renderTrack(D);
 }
-function switchWin(w) { if (W[w]) render(w); }
-
-render(CUR);
-document.getElementById('predIssue').textContent = P.next_issue;
-document.getElementById('lastInfo').textContent = '上期 ' + P.last_issue + ' = ' + P.last_draw;
-document.getElementById('updateTime').textContent = '更新 ' + P.updated;
-document.getElementById('dataInfo').textContent = P.data_info.last;
-/* 每日预测跟踪 */
-(function() {
-  const tk = P.track || {};
+function renderTrack(D) {
+  const tk = D.track || {};
   const s = tk.summary;
   if (s) {
     document.getElementById('tkAll').textContent = s.all_hit_rate + '%';
@@ -357,6 +342,7 @@ document.getElementById('dataInfo').textContent = P.data_info.last;
     document.getElementById('tkRecent30').textContent = s.recent30_all + '%';
   }
   const tbody = document.getElementById('tkBody');
+  tbody.innerHTML = '';
   (tk.rows || []).forEach(function(r) {
     const tr = document.createElement('tr');
     let cls = '', lbl = r.status;
@@ -372,7 +358,14 @@ document.getElementById('dataInfo').textContent = P.data_info.last;
       '<td>' + (r.source === 'live' ? '真实' : '回填') + '</td>';
     tbody.appendChild(tr);
   });
-})();
+}
+function switchWin(w) { if (W[w]) render(w); }
+
+render(CUR);
+document.getElementById('predIssue').textContent = P.next_issue;
+document.getElementById('lastInfo').textContent = '上期 ' + P.last_issue + ' = ' + P.last_draw;
+document.getElementById('updateTime').textContent = '更新 ' + P.updated;
+document.getElementById('dataInfo').textContent = P.data_info.last;
 </script>
 </body>
 </html>

@@ -65,13 +65,14 @@ def main():
         gen_site.main(out_path=OUT_HTML)
         gen_site_run = True
 
-    # 每日预测跟踪：必须在 best_formula.json 更新后执行！
+    # 每日预测跟踪：必须在 best_formula*.json 更新后执行！
     # （否则跟踪会用旧公式记录预测，与页面显示的新公式预测不一致）
-    print("\n[4/6] 每日预测跟踪（验证昨日 + 记录今日）")
+    # 200期与300期各自独立跟踪（独立日志文件，页面切换展示各自真实命中）
+    print("\n[4/6] 双窗口每日预测跟踪（200 + 300 各自验证昨日 + 记录今日）")
     track_changed = False
     try:
         import track_predictions
-        track_changed = track_predictions.main()
+        track_changed = track_predictions.run_both()
     except Exception as e:
         print(f"  ⚠ 预测跟踪异常（不影响主流程）: {str(e)[:80]}")
 
