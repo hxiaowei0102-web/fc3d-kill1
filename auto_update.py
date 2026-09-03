@@ -76,9 +76,12 @@ def main():
     except Exception as e:
         print(f"  ⚠ 预测跟踪异常（不影响主流程）: {str(e)[:80]}")
 
-    # 跟踪有变化但页面已生成过则无需重建；若页面没生成（数据/公式未变）但跟踪有变化 → 补生成页面
-    if track_changed and not gen_site_run:
-        print("[5/6] 跟踪有新记录，补生成页面（含最新跟踪看板）")
+    # 跟踪有变化 → 无论页面是否已生成都要重建！
+    # 原因：第[3/6]步生成页面时跟踪日志尚未验证（235还是pending），
+    # 第[4/6]步才验证235=hit并落盘236新预测；若不重建页面，线上会一直显示
+    # 验证前的旧预测（235的041/841）而非最新的236预测（2026-09-03修复）。
+    if track_changed:
+        print("[5/6] 跟踪有更新，重建页面（含最新验证结果+新预测）")
         import gen_site
         gen_site.main(out_path=OUT_HTML)
 
