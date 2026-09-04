@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-福彩3D 百十个杀一码（暴力穷举·双窗口200/300·固定公式）— 生成自包含本地网页
+福彩3D 百十个杀一码（暴力穷举·200期窗口·固定公式）— 生成自包含本地网页
 风格复刻 D:\\新版百十个\\index.html，适配杀一码（每位置1个数字块）。
-页面支持「近200期 / 近300期」按钮切换：各自公式、命中率、回测表独立展示。
+【2026-09-04】已移除 300 期副窗口与切换按钮，只保留 200 期单窗口。
 """
 import json
 import datetime
@@ -37,10 +37,9 @@ FEAT_ZH = {
     'bpr': '近2期百位积尾', 'spr': '近2期十位积尾', 'gpr': '近2期个位积尾',
 }
 
-# 参与页面展示的窗口配置：json文件 → 展示期数 → 该窗口独立跟踪日志（顺序=按钮顺序）
+# 参与页面展示的窗口配置：json文件 → 展示期数 → 该窗口独立跟踪日志
 WINDOW_CONFIG = [
     {'file': 'best_formula.json', 'win': 200, 'label': '200期', 'log': 'predictions_log.csv'},
-    {'file': 'best_formula_300.json', 'win': 300, 'label': '300期', 'log': 'predictions_log_300.csv'},
 ]
 
 
@@ -114,9 +113,8 @@ def build_data():
             d['kh'], d['kt'], d['ko'], d['src'] = pred['kh'], pred['kt'], pred['ko'], 'formula'
 
     d200 = windows.get(200)
-    d_first = windows.get(300) or d200
-    # 默认横幅预测：200窗口的 pending（若有），否则第一个可用窗口
-    base = d200 or d_first
+    # 默认横幅预测：200窗口（唯一窗口）
+    base = d200
     return {
         'data_info': {'n_issues': len(issues), 'first': issues[0], 'last': issues[-1]},
         'next_issue': base['next_issue'] if base else '',
@@ -156,7 +154,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>福彩3D 百十个位各杀一码 · 暴力穷举200/300期</title>
+<title>福彩3D 百十个位各杀一码 · 暴力穷举200期</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #333; }
@@ -168,11 +166,6 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
 .banner .issue { font-size: 1.4rem; font-weight: 700; color: #e65100; }
 .banner .last { font-size: .75rem; color: #856404; margin-top: 2px; }
 .banner .time { font-size: .65rem; color: #999; }
-.win-switch { display: flex; gap: 6px; margin-bottom: 8px; }
-.wb { flex: 1; padding: 9px 0; border: 1.5px solid #d5d5e0; background: #fff; border-radius: 8px; font-size: .85rem; font-weight: 700; color: #666; cursor: pointer; transition: all .15s; }
-.wb.on { background: #5b3cc4; border-color: #5b3cc4; color: #fff; box-shadow: 0 1px 5px rgba(91,60,196,.3); }
-.wb:active { transform: scale(.97); }
-.win-note { font-size: .62rem; color: #b26a00; background: #fff3e0; border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; line-height: 1.5; display: none; }
 .kill-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 8px; }
 .kill-card { background: #fff; border-radius: 8px; padding: 12px 6px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
 .kill-card .pos-label { font-size: .7rem; color: #888; }
@@ -209,18 +202,13 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
 <div class="container">
 <div class="header">
   <h1>福彩3D 百十个位各杀一码</h1>
-  <div class="sub">暴力穷举 · 每位置各杀1码 · <span id="subWin">200</span>/300期双窗口可切换</div>
+  <div class="sub">暴力穷举 · 每位置各杀1码 · 近<span id="subWin">200</span>期窗口</div>
 </div>
 <div class="banner">
   <div class="issue" id="predIssue">-</div>
   <div class="last" id="lastInfo"></div>
   <div class="time" id="updateTime"></div>
 </div>
-<div class="win-switch">
-  <button class="wb on" id="winBtn200" onclick="switchWin(200)">近200期</button>
-  <button class="wb" id="winBtn300" onclick="switchWin(300)">近300期</button>
-</div>
-<div class="win-note" id="winNote">※ 本窗口预测数字与下方跟踪看板，均来自该窗口自身的独立每日跟踪</div>
 <div class="kill-grid">
   <div class="kill-card"><div class="pos-label">百位杀一码</div><span class="num" id="kh">-</span></div>
   <div class="kill-card"><div class="pos-label">十位杀一码</div><span class="num" id="kt">-</span></div>
@@ -236,7 +224,7 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
   <div class="stat"><div class="val" id="sStreak">-</div><div class="lbl">连错max</div></div>
   <div class="stat"><div class="val" id="sTotal">-</div><div class="lbl">回测期数</div></div>
   <div class="stat"><div class="val" id="sPool">-</div><div class="lbl">穷举公式数</div></div>
-  <div class="stat"><div class="val" id="winVal">200</div><div class="lbl">当前窗口</div></div>
+  <div class="stat"><div class="val" id="winVal">200</div><div class="lbl">窗口期数</div></div>
 </div>
 <div class="table-wrap">
   <h3>回测明细 <span style="font-size:.65rem;color:#999">(逐期真实预测 · 最新在前)</span> <span style="font-size:.65rem;color:#999;float:right">✓中 ✗错</span></h3>
@@ -248,14 +236,14 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
   </div>
 </div>
 <div class="info">
-  <h3>三条最优公式（暴力穷举·<span id="algoWin">200</span>期窗口）</h3>
+  <h3>三条最优公式（暴力穷举·近200期窗口）</h3>
   <div id="algoList"></div>
   <div style="font-size:.68rem;color:#888;margin-top:8px;line-height:1.6">
     3杀全中随机基线 72.9%（每位置杀1码 0.9³）。本窗口全中 <b id="allVal">-</b>。
   </div>
 </div>
 <div class="table-wrap">
-  <h3>📈 每日预测跟踪 · 近<span id="tkWin">200</span>期 <span style="font-size:.65rem;color:#999">(开奖前记录 · 开奖后回填 · 各窗口独立)</span></h3>
+  <h3>📈 每日预测跟踪 <span style="font-size:.65rem;color:#999">(开奖前记录 · 开奖后回填)</span></h3>
   <div class="stats" style="margin:8px 4px;grid-template-columns:1fr 1fr 1fr">
     <div class="stat stat-main"><div class="val g" id="tkAll">-</div><div class="lbl">★3杀全中率(已验证)</div></div>
     <div class="stat"><div class="val" id="tkVerified">-</div><div class="lbl">已验证期数</div></div>
@@ -268,8 +256,7 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
   </div>
   <div style="padding:0 12px 8px;font-size:.62rem;color:#999;line-height:1.6">
     预测在<b>开奖前落盘</b>（第i期只用第i-1/i-2期数据），开奖后自动回填判定。<b>真实跟踪</b>从启用日起逐期累计，
-    是唯一的样本外指标；历史回填=公式拟合窗口，数字偏乐观。<br>200期与300期<b>各自独立跟踪</b>（独立日志、独立公式），
-    切换上方窗口即切换对应跟踪看板。
+    是唯一的样本外指标；历史回填=公式拟合窗口，数字偏乐观。
   </div>
   <div class="scroll" style="max-height:280px">
     <table class="tbl">
@@ -286,7 +273,7 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
 <script>
 const P = __DATA__;
 const W = P.windows || {};
-let CUR = (200 in W) ? 200 : ((300 in W) ? 300 : null);
+let CUR = (200 in W) ? 200 : (Object.keys(W)[0] || null);
 
 function render(w) {
   const D = W[w];
@@ -304,12 +291,7 @@ function render(w) {
   document.getElementById('sPool').textContent = P.pool_size >= 10000 ? (P.pool_size/10000).toFixed(1) + '万' : P.pool_size;
   document.getElementById('winVal').textContent = w;
   document.getElementById('subWin').textContent = w;
-  document.getElementById('algoWin').textContent = w;
-  document.getElementById('tkWin').textContent = w;
   document.getElementById('allVal').textContent = D.s.all + '%';
-  document.getElementById('winBtn200').className = 'wb' + (w === 200 ? ' on' : '');
-  document.getElementById('winBtn300').className = 'wb' + (w === 300 ? ' on' : '');
-  document.getElementById('winNote').style.display = 'none';
   document.getElementById('algoList').innerHTML =
     '<div class="algo"><b>百位</b> <span class="f">' + D.combo.h + '</span><span class="zh">' + D.explain.h + '</span></div>' +
     '<div class="algo"><b>十位</b> <span class="f">' + D.combo.t + '</span><span class="zh">' + D.explain.t + '</span></div>' +
@@ -359,8 +341,6 @@ function renderTrack(D) {
     tbody.appendChild(tr);
   });
 }
-function switchWin(w) { if (W[w]) render(w); }
-
 render(CUR);
 document.getElementById('predIssue').textContent = P.next_issue;
 document.getElementById('lastInfo').textContent = '上期 ' + P.last_issue + ' = ' + P.last_draw;

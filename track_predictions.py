@@ -21,8 +21,7 @@ from engine import load_data, get_next_issue
 from formulas import make_predictor
 
 CSV_PATH = 'data/fc3d-history.csv'
-LOG_PATH = 'predictions_log.csv'          # 200期主窗口 跟踪日志
-LOG_300_PATH = 'predictions_log_300.csv'  # 300期副窗口 独立跟踪日志
+LOG_PATH = 'predictions_log.csv'          # 200期窗口 跟踪日志（唯一）
 HEADER = ['issue', 'kh', 'kt', 'ko', 'prev_issue', 'prev_draw',
           'formula_h', 'formula_t', 'formula_o',
           'draw', 'h_hit', 't_hit', 'o_hit', 'all_hit', 'status', 'source',
@@ -274,20 +273,8 @@ def main(combo_path='best_formula.json', log_path=LOG_PATH, label=''):
 
 
 def run_both():
-    """200期主窗口 + 300期副窗口 各自独立跟踪。返回是否任一有变化。"""
-    c1 = main('best_formula.json', LOG_PATH, '200')
-    try:
-        # 300期用 best_formula_300.json；若不存在（数据不足）则跳过
-        import os as _os
-        if _os.path.exists('best_formula_300.json'):
-            c2 = main('best_formula_300.json', LOG_300_PATH, '300')
-        else:
-            print("[300] best_formula_300.json 不存在，跳过300期跟踪")
-            c2 = False
-    except Exception as e:
-        print(f"[300] ⚠ 300期跟踪异常: {str(e)[:80]}")
-        c2 = False
-    return c1 or c2
+    """200期窗口每日预测跟踪（唯一窗口）。返回是否有变化。"""
+    return main('best_formula.json', LOG_PATH, '200')
 
 
 if __name__ == '__main__':
