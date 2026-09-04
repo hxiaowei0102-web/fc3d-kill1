@@ -39,8 +39,6 @@ def main():
 
     print("\n[2/6] 200期窗口暴力穷举")
     import bruteforce
-    from engine import load_data
-    issues, hh, tt, oo = load_data()
     r200, _ = bruteforce.run_multi(verbose=True)
     new_combo = r200['combo'] if r200 else None
 

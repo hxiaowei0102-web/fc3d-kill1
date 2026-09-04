@@ -24,11 +24,11 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"  ⚠ 数据同步异常，沿用现有CSV: {str(e)[:80]}")
 
-    print("\n[2/3] 双窗口暴力穷举（200期主 + 300期副）")
+    print("\n[2/3] 200期窗口暴力穷举")
     import bruteforce
     bruteforce.main()
 
-    print("\n[3/3] 生成网页（200/300双窗口回测）")
+    print("\n[3/3] 生成网页（200期窗口回测）")
     import os, shutil, gen_site
     os.makedirs('static', exist_ok=True)
     gen_site.main(out_path='static/index.html')  # 与云端auto_update.py输出路径统一
