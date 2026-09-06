@@ -260,7 +260,7 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
   </div>
   <div class="scroll" style="max-height:280px">
     <table class="tbl">
-      <thead><tr><th>期号</th><th>预测杀码</th><th>开奖</th><th>结果</th><th>类型</th></tr></thead>
+      <thead><tr><th>期号</th><th>预测杀码</th><th>开奖</th><th>结果</th></tr></thead>
       <tbody id="tkBody"></tbody>
     </table>
   </div>
@@ -329,15 +329,13 @@ function renderTrack(D) {
     const tr = document.createElement('tr');
     let cls = '', lbl = r.status;
     if (r.status === 'hit') { cls = 'tr-hit'; lbl = '✓全中'; }
-    else if (r.status === 'miss') { cls = 'tr-miss'; lbl = '✗失误'; }
-    else if (r.status === 'partial') { cls = 'tr-miss'; lbl = '◐部分'; }
+    else if (r.status === 'partial' || r.status === 'miss') { cls = 'tr-miss'; lbl = '✗错误'; }
     else { cls = 'tr-miss'; lbl = '⏳待开奖'; }
     tr.className = cls;
     tr.innerHTML =
       '<td>' + r.issue + '</td><td class="kill">' + r.kills + '</td>' +
       '<td><b>' + (r.draw || '-') + '</b></td>' +
-      '<td class="' + (r.status === 'hit' ? 'badge-y' : 'badge-n') + '">' + lbl + '</td>' +
-      '<td>' + (r.source === 'live' ? '真实' : '回填') + '</td>';
+      '<td class="' + (r.status === 'hit' ? 'badge-y' : 'badge-n') + '">' + lbl + '</td>';
     tbody.appendChild(tr);
   });
 }
