@@ -1,15 +1,15 @@
 {
   "window": 200,
   "data_info": {
-    "n_issues": 8808,
+    "n_issues": 8809,
     "first": "2002001",
-    "last": "2026300"
+    "last": "2026301"
   },
   "pool_size": 9053550,
   "combo": {
     "h": "1*go+3*bL+7",
     "t": "1*go+1*gL+1*db+9",
-    "o": "2*s+1*s2+2*dS+6"
+    "o": "1*mn+2*d3+2*bpr+2"
   },
   "rates": {
     "h": 98.5,
